@@ -1,0 +1,11 @@
+---
+wireguard_interface: wg0
+wireguard_port: 51820
+wireguard_address: ""
+wireguard_mtu: 1420
+wireguard_is_hub: false
+wireguard_enable_peer_forwarding: false
+wireguard_peers: []
+wireguard_external_peers: []
+wireguard_private_key_path: "/etc/wireguard/{{ wireguard_interface }}.key"
+wireguard_public_key_path: "/etc/wireguard/{{ wireguard_interface }}.pub"

@@ -1,0 +1,16 @@
+# Managed by Ansible. Manual changes will be overwritten.
+{% for proxy in nginx_stream_proxies %}
+{% set listen_protocol = ' udp' if proxy.protocol == 'udp' else '' %}
+{% set listen_reuseport = ' reuseport' if proxy.reuseport | default(false) else '' %}
+upstream ansible_{{ proxy.name | regex_replace('[^A-Za-z0-9_]', '_') }} {
+    server {{ proxy.upstream_host }}:{{ proxy.upstream_port }};
+}
+
+server {
+    listen {{ proxy.listen_port }}{{ listen_protocol }}{{ listen_reuseport }};
+    proxy_connect_timeout {{ proxy.connect_timeout | default(nginx_stream_connect_timeout) }};
+    proxy_timeout {{ proxy.proxy_timeout | default(nginx_stream_proxy_timeout) }};
+    proxy_pass ansible_{{ proxy.name | regex_replace('[^A-Za-z0-9_]', '_') }};
+}
+
+{% endfor %}

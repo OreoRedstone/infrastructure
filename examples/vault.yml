@@ -1,0 +1,13 @@
+---
+# Copy to inventory/group_vars/all/vault.yml, replace every value, then run:
+# ansible-vault encrypt inventory/group_vars/all/vault.yml
+
+# Generate on the laptop with `wg genkey | tee laptop.key | wg pubkey` and put
+# only the resulting public key here. Keep laptop.key outside this repository.
+vault_wireguard_laptop_public_key: REPLACE_WITH_LAPTOP_PUBLIC_KEY
+
+# Suggested generators are shown in README.md. Do not reuse these example values.
+vault_komodo_database_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
+vault_komodo_admin_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
+vault_komodo_webhook_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
+vault_komodo_jwt_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS

@@ -1,0 +1,18 @@
+---
+komodo_project_directory: /opt/komodo
+komodo_root_directory: /etc/komodo
+komodo_backups_directory: /etc/komodo/backups
+komodo_image_tag: "2"
+komodo_mongo_image: mongo:8
+komodo_bind_address: 127.0.0.1
+komodo_host_url: http://127.0.0.1:9120
+komodo_title: Komodo
+komodo_first_server_name: Local
+komodo_admin_username: admin
+komodo_database_username: komodo
+komodo_disable_user_registration: true
+
+vault_komodo_database_password: ""
+vault_komodo_admin_password: ""
+vault_komodo_webhook_secret: ""
+vault_komodo_jwt_secret: ""

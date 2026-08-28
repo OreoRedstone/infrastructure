@@ -1,0 +1,16 @@
+# Vault password files must never be committed.
+.vault-password
+*.vault-password
+
+# Rendered client configurations contain private keys.
+artifacts/
+*.key
+
+# Local/editor files.
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Temporary Ansible output.
+*.retry

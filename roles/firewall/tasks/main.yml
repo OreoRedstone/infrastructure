@@ -1,0 +1,116 @@
+---
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  when: manage_ufw | bool
+
+- name: Set the default incoming policy
+  community.general.ufw:
+    direction: incoming
+    default: "{{ ufw_default_incoming_policy }}"
+  when: manage_ufw | bool
+
+- name: Set the default outgoing policy
+  community.general.ufw:
+    direction: outgoing
+    default: "{{ ufw_default_outgoing_policy }}"
+  when: manage_ufw | bool
+
+- name: Set the default routed policy
+  community.general.ufw:
+    direction: routed
+    default: "{{ ufw_default_routed_policy }}"
+  when: manage_ufw | bool
+
+- name: Permit SSH from bootstrap and management networks
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    from_ip: "{{ item }}"
+    comment: Ansible SSH management
+  loop: "{{ ufw_management_sources }}"
+  when: manage_ufw | bool
+
+- name: Add or remove temporary bootstrap rules
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    delete: "{{ not (bootstrap_mode | bool) }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default(omit) }}"
+    from_ip: "{{ item.from_ip | default(omit) }}"
+    to_ip: "{{ item.to_ip | default(omit) }}"
+    interface_in: "{{ item.interface_in | default(omit) }}"
+    comment: "{{ item.comment | default('Ansible bootstrap') }}"
+  loop: "{{ ufw_bootstrap_rules }}"
+  when: manage_ufw | bool
+
+- name: Permit management traffic arriving through WireGuard
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ wireguard_interface }}"
+    from_ip: "{{ wireguard_vpn_network }}"
+    comment: WireGuard management network
+  when:
+    - manage_ufw | bool
+    - inventory_hostname in groups['vpn']
+
+- name: Permit the public WireGuard endpoint
+  community.general.ufw:
+    rule: allow
+    port: "{{ wireguard_port }}"
+    proto: udp
+    comment: WireGuard endpoint
+  when:
+    - manage_ufw | bool
+    - inventory_hostname in groups['vps']
+
+- name: Permit public Nginx stream ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.listen_port | string }}"
+    proto: "{{ item.protocol }}"
+    comment: "Nginx stream {{ item.name }}"
+  loop: "{{ nginx_stream_proxies }}"
+  loop_control:
+    label: "{{ item.protocol }}/{{ item.listen_port }} ({{ item.name }})"
+  when:
+    - manage_ufw | bool
+    - inventory_hostname in groups['vps']
+
+- name: Permit routing between WireGuard peers on the hub
+  community.general.ufw:
+    rule: allow
+    route: true
+    interface_in: "{{ wireguard_interface }}"
+    interface_out: "{{ wireguard_interface }}"
+    from_ip: "{{ wireguard_vpn_network }}"
+    to_ip: "{{ wireguard_vpn_network }}"
+    comment: WireGuard peer forwarding
+  when:
+    - manage_ufw | bool
+    - wireguard_enable_peer_forwarding | bool
+
+- name: Apply additional host firewall rules
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default(omit) }}"
+    from_ip: "{{ item.from_ip | default(omit) }}"
+    to_ip: "{{ item.to_ip | default(omit) }}"
+    interface_in: "{{ item.interface_in | default(omit) }}"
+    comment: "{{ item.comment | default('Ansible managed') }}"
+  loop: "{{ ufw_additional_rules }}"
+  when: manage_ufw | bool
+
+- name: Enable UFW logging
+  community.general.ufw:
+    logging: low
+  when: manage_ufw | bool
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  when: manage_ufw | bool

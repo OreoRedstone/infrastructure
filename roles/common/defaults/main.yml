@@ -1,0 +1,17 @@
+---
+manage_hostname: true
+hostname: "{{ inventory_hostname }}"
+timezone: Etc/UTC
+bootstrap_mode: true
+
+admin_user: ansible
+admin_authorized_keys: []
+
+ssh_password_authentication: false
+ssh_permit_root_login: false
+
+common_packages:
+  - ca-certificates
+  - curl
+  - python3
+  - sudo

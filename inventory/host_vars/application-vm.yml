@@ -1,0 +1,25 @@
+---
+# Replace this with the address reachable from the Ansible controller during
+# bootstrap. It may remain the LAN address after the VPN is configured.
+ansible_host: CHANGE_ME_APPLICATION_SSH_ADDRESS
+ansible_user: root
+
+hostname: oreo-applications
+
+wireguard_address: 10.13.13.2/24
+wireguard_peers:
+  - name: VPS hub
+    host: proxy-vps
+    endpoint: "{{ hostvars['proxy-vps']['wireguard_endpoint'] }}:{{ wireguard_port }}"
+    allowed_ips:
+      - "{{ wireguard_vpn_network }}"
+    persistent_keepalive: "{{ wireguard_persistent_keepalive }}"
+
+docker_users:
+  - "{{ admin_user }}"
+
+komodo_bind_address: 10.13.13.2
+komodo_host_url: http://10.13.13.2:9120
+komodo_first_server_name: oreo-applications
+komodo_admin_username: oreo
+komodo_disable_user_registration: true

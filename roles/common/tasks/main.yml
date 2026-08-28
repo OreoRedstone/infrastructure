@@ -1,0 +1,84 @@
+---
+- name: Verify this role is running on a supported operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == "Debian"
+    fail_msg: >-
+      This repository supports Ubuntu and Debian-family Proxmox hosts only;
+      found {{ ansible_distribution }} {{ ansible_distribution_version }}.
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ hostname }}"
+  when: manage_hostname | bool
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Refresh apt package metadata
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+
+- name: Create the administrator account
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    groups: sudo
+    append: true
+    create_home: true
+    shell: /bin/bash
+    password: "!"
+    update_password: on_create
+
+- name: Install administrator SSH keys
+  ansible.posix.authorized_key:
+    user: "{{ admin_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ admin_authorized_keys }}"
+  no_log: true
+
+- name: Ensure the OpenSSH drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Select the root SSH login policy
+  ansible.builtin.set_fact:
+    common_root_login_policy: >-
+      {%- if (bootstrap_mode | bool) or (admin_authorized_keys | length == 0) -%}
+      prohibit-password
+      {%- elif ssh_permit_root_login | bool -%}
+      yes
+      {%- else -%}
+      no
+      {%- endif -%}
+
+- name: Harden SSH authentication
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-ansible-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible.
+      PasswordAuthentication {{ ssh_password_authentication | bool | ternary('yes', 'no') }}
+      KbdInteractiveAuthentication no
+      # Retain root key access during bootstrap or until the admin has a key.
+      PermitRootLogin {{ common_root_login_policy }}
+  register: common_sshd_config
+  notify: Reload SSH
+
+- name: Validate the SSH daemon configuration
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false
+  when: common_sshd_config is changed

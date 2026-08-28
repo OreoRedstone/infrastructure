@@ -1,0 +1,15 @@
+---
+- name: Read generated WireGuard public keys
+  hosts: vpn
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Read the public key
+      ansible.builtin.slurp:
+        src: "/etc/wireguard/{{ wireguard_interface }}.pub"
+      register: vpn_public_key_file
+
+    - name: Show the public key
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ vpn_public_key_file.content | b64decode | trim }}"

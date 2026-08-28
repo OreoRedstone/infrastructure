@@ -1,0 +1,68 @@
+# Managed by Ansible. Based on Komodo's supported MongoDB Compose deployment.
+services:
+  mongo:
+    image: {{ komodo_mongo_image }}
+    command: --quiet --wiredTigerCacheSizeGB 0.25
+    restart: unless-stopped
+    labels:
+      komodo.skip: ""
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: {{ komodo_database_username | to_json }}
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/database_password
+    secrets:
+      - database_password
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+
+  core:
+    image: ghcr.io/moghtech/komodo-core:${COMPOSE_KOMODO_IMAGE_TAG:-2}
+    init: true
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - {{ (komodo_bind_address ~ ':9120:9120') | to_json }}
+    env_file: ./compose.env
+    environment:
+      KOMODO_DATABASE_ADDRESS: mongo:27017
+      KOMODO_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      KOMODO_INIT_ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      KOMODO_WEBHOOK_SECRET_FILE: /run/secrets/webhook_secret
+      KOMODO_JWT_SECRET_FILE: /run/secrets/jwt_secret
+    secrets:
+      - database_password
+      - admin_password
+      - webhook_secret
+      - jwt_secret
+    volumes:
+      - keys:/config/keys
+      - {{ (komodo_backups_directory ~ ':/backups') | to_json }}
+
+  periphery:
+    image: ghcr.io/moghtech/komodo-periphery:${COMPOSE_KOMODO_IMAGE_TAG:-2}
+    init: true
+    restart: unless-stopped
+    depends_on:
+      - core
+    env_file: ./compose.env
+    volumes:
+      - keys:/config/keys
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc
+      - {{ (komodo_root_directory ~ ':' ~ komodo_root_directory) | to_json }}
+
+secrets:
+  database_password:
+    file: ./secrets/database_password
+  admin_password:
+    file: ./secrets/admin_password
+  webhook_secret:
+    file: ./secrets/webhook_secret
+  jwt_secret:
+    file: ./secrets/jwt_secret
+
+volumes:
+  mongo-data:
+  mongo-config:
+  keys:

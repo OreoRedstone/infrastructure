@@ -1,0 +1,47 @@
+---
+- name: Common configuration
+  hosts: all
+  become: true
+  tags: common
+
+  roles:
+    - common
+
+- name: Configure VPNs
+  hosts: vpn
+  become: true
+  tags: wireguard
+
+  roles:
+    - wireguard
+
+- name: Configure host firewalls
+  hosts: all
+  become: true
+  tags: firewall
+
+  roles:
+    - firewall
+
+- name: Configure the public stream proxy
+  hosts: vps
+  become: true
+  tags: nginx
+
+  roles:
+    - nginx_stream
+
+- name: Configure the application platform
+  hosts: applications
+  become: true
+
+  roles:
+    - role: docker
+      tags:
+        - applications
+        - docker
+        - komodo
+    - role: komodo
+      tags:
+        - applications
+        - komodo

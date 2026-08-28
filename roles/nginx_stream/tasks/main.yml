@@ -1,0 +1,64 @@
+---
+- name: Require at least one stream proxy definition
+  ansible.builtin.assert:
+    that:
+      - nginx_stream_proxies | length > 0
+    fail_msg: "Define at least one nginx_stream_proxies entry."
+
+- name: Validate stream proxy definitions
+  ansible.builtin.assert:
+    that:
+      - item.protocol in ['tcp', 'udp']
+      - item.listen_port is defined
+      - item.upstream_host is defined
+      - item.upstream_port is defined
+    fail_msg: "Invalid nginx_stream_proxies entry: {{ item }}"
+  loop: "{{ nginx_stream_proxies }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: Install Nginx with the stream module
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - libnginx-mod-stream
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the stream configuration directory
+  ansible.builtin.file:
+    path: /etc/nginx/stream-conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Load the managed stream context
+  ansible.builtin.blockinfile:
+    path: /etc/nginx/nginx.conf
+    marker: "# {mark} ANSIBLE MANAGED STREAM CONTEXT"
+    insertafter: EOF
+    block: |
+      stream {
+          include /etc/nginx/stream-conf.d/*.conf;
+      }
+  notify: Validate and reload Nginx
+
+- name: Configure Nginx stream proxies
+  ansible.builtin.template:
+    src: proxies.conf.j2
+    dest: /etc/nginx/stream-conf.d/ansible-proxies.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and reload Nginx
+
+- name: Enable and start Nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Apply Nginx configuration changes now
+  ansible.builtin.meta: flush_handlers

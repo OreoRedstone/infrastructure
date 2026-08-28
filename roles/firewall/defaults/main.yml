@@ -1,0 +1,11 @@
+---
+manage_ufw: true
+ufw_default_incoming_policy: deny
+ufw_default_outgoing_policy: allow
+ufw_default_routed_policy: deny
+bootstrap_mode: true
+ufw_management_sources: []
+ufw_bootstrap_rules: []
+ufw_additional_rules: []
+wireguard_enable_peer_forwarding: false
+nginx_stream_proxies: []

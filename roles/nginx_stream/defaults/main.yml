@@ -1,0 +1,4 @@
+---
+nginx_stream_proxies: []
+nginx_stream_connect_timeout: 5s
+nginx_stream_proxy_timeout: 1h

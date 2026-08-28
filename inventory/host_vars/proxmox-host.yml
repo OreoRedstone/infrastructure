@@ -1,0 +1,31 @@
+---
+# Proxmox VE is Debian-based. Replace these two connection placeholders before
+# running the playbook.
+ansible_host: CHANGE_ME_PROXMOX_SSH_ADDRESS
+ansible_user: root
+
+# Hostname changes can disrupt an existing Proxmox cluster and /etc/hosts, so
+# the common role leaves this host's current name alone.
+manage_hostname: false
+
+wireguard_address: 10.13.13.3/24
+wireguard_peers:
+  - name: VPS hub
+    host: proxy-vps
+    endpoint: "{{ hostvars['proxy-vps']['wireguard_endpoint'] }}:{{ wireguard_port }}"
+    allowed_ips:
+      - "{{ wireguard_vpn_network }}"
+    persistent_keepalive: "{{ wireguard_persistent_keepalive }}"
+
+# Preserve forwarding through Proxmox bridges. UFW governs host input but must
+# not silently stop guest traffic.
+ufw_default_routed_policy: allow
+ufw_bootstrap_rules:
+  - port: "22"
+    proto: tcp
+    from_ip: 192.168.0.0/16
+    comment: Bootstrap SSH from LAN
+  - port: "8006"
+    proto: tcp
+    from_ip: 192.168.0.0/16
+    comment: Proxmox web UI from bootstrap LAN

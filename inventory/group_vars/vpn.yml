@@ -1,0 +1,5 @@
+---
+# These routes create a management-only VPN. They do not make the VPS an
+# Internet gateway for the other peers.
+wireguard_mtu: 1420
+wireguard_persistent_keepalive: 25
