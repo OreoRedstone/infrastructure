@@ -45,3 +45,7 @@
       tags:
         - applications
         - komodo
+    - role: nginx_reverse_proxy
+      tags:
+        - applications
+        - nginx

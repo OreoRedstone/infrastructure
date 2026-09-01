@@ -1,0 +1,37 @@
+# Managed by Ansible. The VPS forwards public TCP/443 traffic here.
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name {{ nginx_reverse_proxy_deploy_server_name }};
+
+    ssl_certificate {{ nginx_reverse_proxy_tls_certificate }};
+    ssl_certificate_key {{ nginx_reverse_proxy_tls_certificate_key }};
+
+    location / {
+        proxy_pass http://{{ nginx_reverse_proxy_deploy_upstream }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+
+    ssl_certificate {{ nginx_reverse_proxy_tls_certificate }};
+    ssl_certificate_key {{ nginx_reverse_proxy_tls_certificate_key }};
+
+    location / {
+        proxy_pass http://{{ nginx_reverse_proxy_default_upstream }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}

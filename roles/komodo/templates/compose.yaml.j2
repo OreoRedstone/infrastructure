@@ -1,7 +1,8 @@
-# Managed by Ansible. Based on Komodo's supported MongoDB Compose deployment.
+# Managed by Ansible. Credentials are rendered into this root-only file to
+# match the existing Compose deployment and avoid local-secret permission issues.
 services:
   mongo:
-    image: {{ komodo_mongo_image }}
+    image: {{ komodo_mongo_image | to_json }}
     command: --quiet --wiredTigerCacheSizeGB 0.25
     restart: unless-stopped
     labels:
@@ -10,15 +11,13 @@ services:
       glance.name: Mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: {{ komodo_database_username | to_json }}
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/database_password
-    secrets:
-      - database_password
+      MONGO_INITDB_ROOT_PASSWORD: {{ vault_komodo_database_password | to_json }}
     volumes:
       - mongo-data:/data/db
       - mongo-config:/data/configdb
 
   core:
-    image: ghcr.io/moghtech/komodo-core:${COMPOSE_KOMODO_IMAGE_TAG:-2}
+    image: ghcr.io/moghtech/komodo-core:{{ komodo_image_tag }}
     init: true
     container_name: {{ komodo_core_container_name }}
     restart: unless-stopped
@@ -39,28 +38,28 @@ services:
 {% endif %}
 {% if komodo_publish_core_port | bool %}
     ports:
-{% for address in [komodo_bind_address] + komodo_additional_bind_addresses %}
+{% set additional_bind_addresses = [] %}
+{% if komodo_additional_bind_addresses is iterable and komodo_additional_bind_addresses is not string %}
+{% set additional_bind_addresses = komodo_additional_bind_addresses %}
+{% endif %}
+{% for address in [komodo_bind_address] + additional_bind_addresses %}
       - {{ (address ~ ':9120:9120') | to_json }}
 {% endfor %}
 {% endif %}
     env_file: ./compose.env
     environment:
       KOMODO_DATABASE_ADDRESS: mongo:27017
-      KOMODO_DATABASE_PASSWORD_FILE: /run/secrets/database_password
-      KOMODO_INIT_ADMIN_PASSWORD_FILE: /run/secrets/admin_password
-      KOMODO_WEBHOOK_SECRET_FILE: /run/secrets/webhook_secret
-      KOMODO_JWT_SECRET_FILE: /run/secrets/jwt_secret
-    secrets:
-      - database_password
-      - admin_password
-      - webhook_secret
-      - jwt_secret
+      KOMODO_DATABASE_USERNAME: {{ komodo_database_username | to_json }}
+      KOMODO_DATABASE_PASSWORD: {{ vault_komodo_database_password | to_json }}
+      KOMODO_INIT_ADMIN_PASSWORD: {{ vault_komodo_admin_password | to_json }}
+      KOMODO_WEBHOOK_SECRET: {{ vault_komodo_webhook_secret | to_json }}
+      KOMODO_JWT_SECRET: {{ vault_komodo_jwt_secret | to_json }}
     volumes:
       - keys:/config/keys
       - {{ (komodo_backups_directory ~ ':/backups') | to_json }}
 
   periphery:
-    image: ghcr.io/moghtech/komodo-periphery:${COMPOSE_KOMODO_IMAGE_TAG:-2}
+    image: ghcr.io/moghtech/komodo-periphery:{{ komodo_image_tag }}
     init: true
     restart: unless-stopped
     depends_on:
@@ -86,16 +85,6 @@ services:
       glance.parent: ntfy
       glance.name: Komodo Ntfy Wrapper
 {% endif %}
-
-secrets:
-  database_password:
-    file: ./secrets/database_password
-  admin_password:
-    file: ./secrets/admin_password
-  webhook_secret:
-    file: ./secrets/webhook_secret
-  jwt_secret:
-    file: ./secrets/jwt_secret
 
 volumes:
   mongo-data:

@@ -23,33 +23,10 @@
   loop:
     - path: "{{ komodo_project_directory }}"
       mode: "0750"
-    - path: "{{ komodo_project_directory }}/secrets"
-      mode: "0700"
     - path: "{{ komodo_root_directory }}"
       mode: "0750"
     - path: "{{ komodo_backups_directory }}"
       mode: "0750"
-
-- name: Install Komodo secret files
-  ansible.builtin.copy:
-    dest: "{{ komodo_project_directory }}/secrets/{{ item.name }}"
-    content: "{{ item.value }}"
-    owner: root
-    group: root
-    mode: "0600"
-  loop:
-    - name: database_password
-      value: "{{ vault_komodo_database_password }}"
-    - name: admin_password
-      value: "{{ vault_komodo_admin_password }}"
-    - name: webhook_secret
-      value: "{{ vault_komodo_webhook_secret }}"
-    - name: jwt_secret
-      value: "{{ vault_komodo_jwt_secret }}"
-  loop_control:
-    label: "{{ item.name }}"
-  no_log: true
-  register: komodo_secret_files
 
 - name: Install the Komodo environment file
   ansible.builtin.template:
@@ -57,7 +34,7 @@
     dest: "{{ komodo_project_directory }}/compose.env"
     owner: root
     group: root
-    mode: "0640"
+    mode: "0600"
   no_log: true
   register: komodo_environment
 
@@ -77,7 +54,8 @@
     dest: "{{ komodo_project_directory }}/compose.yaml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "0600"
+  no_log: true
   register: komodo_compose_file
 
 - name: Deploy Komodo Core, Periphery, and MongoDB
@@ -90,8 +68,8 @@
     pull: missing
     remove_orphans: true
     recreate: >-
-      {{ (komodo_secret_files is changed or komodo_environment is changed or
-          komodo_compose_file is changed) | ternary('always', 'auto') }}
+      {{ (komodo_environment is changed or komodo_compose_file is changed)
+         | ternary('always', 'auto') }}
 
 - name: Wait for Komodo Core to listen on the VPN
   ansible.builtin.wait_for:

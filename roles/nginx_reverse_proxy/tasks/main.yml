@@ -1,0 +1,38 @@
+---
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install the managed HTTPS reverse-proxy configuration
+  ansible.builtin.template:
+    src: default.conf.j2
+    dest: /etc/nginx/sites-available/ansible-reverse-proxy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and reload reverse-proxy Nginx
+
+- name: Enable the managed HTTPS reverse proxy
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/ansible-reverse-proxy.conf
+    dest: /etc/nginx/sites-enabled/ansible-reverse-proxy.conf
+    state: link
+  notify: Validate and reload reverse-proxy Nginx
+
+- name: Disable the distribution default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Validate and reload reverse-proxy Nginx
+
+- name: Enable and start Nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Apply Nginx configuration changes now
+  ansible.builtin.meta: flush_handlers
