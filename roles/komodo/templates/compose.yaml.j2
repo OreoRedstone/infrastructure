@@ -6,6 +6,8 @@ services:
     restart: unless-stopped
     labels:
       komodo.skip: ""
+      glance.parent: komodo
+      glance.name: Mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: {{ komodo_database_username | to_json }}
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/database_password
@@ -18,11 +20,29 @@ services:
   core:
     image: ghcr.io/moghtech/komodo-core:${COMPOSE_KOMODO_IMAGE_TAG:-2}
     init: true
+    container_name: {{ komodo_core_container_name }}
     restart: unless-stopped
+    labels:
+      komodo.skip: "true"
+      glance.name: Komodo
+      glance.id: komodo
+      glance.category: Management
+      glance.icon: sh:komodo
+      glance.url: {{ komodo_host_url | to_json }}
+      glance.description: Docker Stack Management
     depends_on:
       - mongo
+{% if komodo_join_nginx_network | bool %}
+    networks:
+      - default
+      - nginx
+{% endif %}
+{% if komodo_publish_core_port | bool %}
     ports:
-      - {{ (komodo_bind_address ~ ':9120:9120') | to_json }}
+{% for address in [komodo_bind_address] + komodo_additional_bind_addresses %}
+      - {{ (address ~ ':9120:9120') | to_json }}
+{% endfor %}
+{% endif %}
     env_file: ./compose.env
     environment:
       KOMODO_DATABASE_ADDRESS: mongo:27017
@@ -45,12 +65,27 @@ services:
     restart: unless-stopped
     depends_on:
       - core
+{% if komodo_join_nginx_network | bool %}
+    networks:
+      - default
+{% endif %}
     env_file: ./compose.env
     volumes:
       - keys:/config/keys
       - /var/run/docker.sock:/var/run/docker.sock
       - /proc:/proc
       - {{ (komodo_root_directory ~ ':' ~ komodo_root_directory) | to_json }}
+
+{% if komodo_ntfy_enabled | bool %}
+  ntfy-wrapper:
+    image: foxxmd/komodo-ntfy-alerter:latest
+    restart: always
+    env_file:
+      - ./ntfy.env
+    labels:
+      glance.parent: ntfy
+      glance.name: Komodo Ntfy Wrapper
+{% endif %}
 
 secrets:
   database_password:
@@ -66,3 +101,10 @@ volumes:
   mongo-data:
   mongo-config:
   keys:
+{% if komodo_join_nginx_network | bool %}
+
+networks:
+  nginx:
+    external: true
+    name: {{ komodo_nginx_network_name | to_json }}
+{% endif %}

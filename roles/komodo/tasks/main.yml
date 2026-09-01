@@ -10,6 +10,8 @@
       - "'REPLACE_' not in vault_komodo_admin_password"
       - "'REPLACE_' not in vault_komodo_webhook_secret"
       - "'REPLACE_' not in vault_komodo_jwt_secret"
+      - (not komodo_ntfy_enabled | bool) or (komodo_ntfy_env_content | length > 0)
+      - (not komodo_ntfy_enabled | bool) or ('REPLACE_' not in komodo_ntfy_env_content)
     fail_msg: >-
       Create inventory/group_vars/all/vault.yml with the four Komodo secrets
       shown in examples/vault.yml, encrypt it with ansible-vault, and rerun.
@@ -60,7 +62,18 @@
     owner: root
     group: root
     mode: "0640"
+  no_log: true
   register: komodo_environment
+
+- name: Install the Komodo Ntfy wrapper environment file
+  ansible.builtin.copy:
+    dest: "{{ komodo_project_directory }}/ntfy.env"
+    content: "{{ komodo_ntfy_env_content }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: komodo_ntfy_enabled | bool
+  no_log: true
 
 - name: Install the Komodo Compose project
   ansible.builtin.template:
@@ -89,3 +102,4 @@
     host: "{{ komodo_bind_address }}"
     port: 9120
     timeout: 120
+  when: komodo_publish_core_port | bool

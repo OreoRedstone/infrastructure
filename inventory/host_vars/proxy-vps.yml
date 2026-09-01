@@ -18,6 +18,11 @@ wireguard_peers:
     allowed_ips:
       - 10.13.13.3/32
 
+# During migration, copy the old networking VM's public key and WireGuard
+# address here so Ansible can stage Applications without dropping that peer.
+# Remove this list before the final cutover.
+wireguard_transition_peers: []
+
 # Add vault_wireguard_laptop_public_key to inventory/group_vars/all/vault.yml.
 # Until then, this peer is deliberately omitted from the VPS configuration.
 wireguard_external_peers:

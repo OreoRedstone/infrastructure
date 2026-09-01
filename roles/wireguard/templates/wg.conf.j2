@@ -20,6 +20,19 @@ PersistentKeepalive = {{ peer.persistent_keepalive }}
 {% endif %}
 
 {% endfor %}
+{% for peer in wireguard_transition_peers %}
+# Temporary migration peer: {{ peer.name }}
+[Peer]
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.allowed_ips | join(', ') }}
+{% if peer.endpoint is defined %}
+Endpoint = {{ peer.endpoint }}
+{% endif %}
+{% if peer.persistent_keepalive is defined %}
+PersistentKeepalive = {{ peer.persistent_keepalive }}
+{% endif %}
+
+{% endfor %}
 {% for peer in wireguard_external_peers if peer.public_key | default('') | length > 0 %}
 # {{ peer.name }}
 [Peer]

@@ -6,6 +6,7 @@ bootstrap_mode: true
 
 admin_user: ansible
 admin_authorized_keys: []
+admin_sudo_nopasswd: true
 
 ssh_password_authentication: false
 ssh_permit_root_login: false

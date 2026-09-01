@@ -99,6 +99,17 @@
   loop_control:
     label: "{{ item.name }}"
 
+- name: Validate temporary migration peer keys
+  ansible.builtin.assert:
+    that:
+      - item.public_key is match('^[A-Za-z0-9+/]{43}=$')
+    fail_msg: >-
+      {{ item.name }} has an invalid transition peer key. Copy the current
+      peer's public key from the existing VPS WireGuard configuration.
+  loop: "{{ wireguard_transition_peers }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Configure WireGuard
   ansible.builtin.template:
     src: wg.conf.j2

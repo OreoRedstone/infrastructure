@@ -1,8 +1,8 @@
 ---
-# Replace this with the address reachable from the Ansible controller during
-# bootstrap. It may remain the LAN address after the VPN is configured.
-ansible_host: CHANGE_ME_APPLICATION_SSH_ADDRESS
-ansible_user: root
+# Current LAN address; change to 10.13.13.2 after VPN management is verified.
+ansible_host: 192.168.0.100
+ansible_user: oreo
+ansible_become: true
 
 hostname: oreo-applications
 
@@ -19,7 +19,19 @@ docker_users:
   - "{{ admin_user }}"
 
 komodo_bind_address: 10.13.13.2
+komodo_additional_bind_addresses:
+  - 192.168.0.100
+komodo_core_access_cidrs:
+  - 192.168.0.0/16
 komodo_host_url: http://10.13.13.2:9120
+komodo_image_tag: latest
+komodo_publish_core_port: true
+komodo_join_nginx_network: false
 komodo_first_server_name: oreo-applications
 komodo_admin_username: oreo
 komodo_disable_user_registration: true
+# Preserve non-secret settings from the current .env here (preferably via
+# encrypted vault data). Secret values should use the dedicated vault fields.
+komodo_extra_env: "{{ vault_komodo_extra_env | default({}) }}"
+komodo_ntfy_enabled: true
+komodo_ntfy_env_content: "{{ vault_komodo_ntfy_env | default('') }}"

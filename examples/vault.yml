@@ -11,3 +11,8 @@ vault_komodo_database_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
 vault_komodo_admin_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
 vault_komodo_webhook_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
 vault_komodo_jwt_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
+
+# Copy the existing networking VM's ntfy.env contents here if the wrapper is
+# retained. Encrypt this file before committing it.
+vault_komodo_ntfy_env: |
+  REPLACE_WITH_CURRENT_NTFY_ENV_CONTENT

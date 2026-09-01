@@ -6,6 +6,9 @@ wireguard_mtu: 1420
 wireguard_is_hub: false
 wireguard_enable_peer_forwarding: false
 wireguard_peers: []
+# Temporary peers retained during brownfield migration. Remove these from
+# inventory after the replacement peer has been tested.
+wireguard_transition_peers: []
 wireguard_external_peers: []
 wireguard_private_key_path: "/etc/wireguard/{{ wireguard_interface }}.key"
 wireguard_public_key_path: "/etc/wireguard/{{ wireguard_interface }}.pub"

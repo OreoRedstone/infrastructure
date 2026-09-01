@@ -44,6 +44,16 @@
   loop: "{{ admin_authorized_keys }}"
   no_log: true
 
+- name: Allow the Ansible administrator to become root without a password
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-ansible-{{ admin_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    content: "{{ admin_user }} ALL=(ALL) NOPASSWD: ALL\n"
+    validate: "/usr/sbin/visudo -cf %s"
+  when: admin_sudo_nopasswd | bool
+
 - name: Ensure the OpenSSH drop-in directory exists
   ansible.builtin.file:
     path: /etc/ssh/sshd_config.d

@@ -80,6 +80,31 @@
     - manage_ufw | bool
     - inventory_hostname in groups['vps']
 
+- name: Permit Komodo Core from the management VPN
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ wireguard_interface }}"
+    from_ip: "{{ wireguard_vpn_network }}"
+    port: "9120"
+    proto: tcp
+    comment: Komodo Core on WireGuard
+  when:
+    - manage_ufw | bool
+    - komodo_publish_core_port | bool
+
+- name: Permit Komodo Core from configured LAN networks
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+    port: "9120"
+    proto: tcp
+    comment: Komodo Core on LAN
+  loop: "{{ komodo_core_access_cidrs }}"
+  when:
+    - manage_ufw | bool
+    - komodo_publish_core_port | bool
+
 - name: Permit routing between WireGuard peers on the hub
   community.general.ufw:
     rule: allow

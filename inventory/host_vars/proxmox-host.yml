@@ -1,7 +1,7 @@
 ---
 # Proxmox VE is Debian-based. Replace these two connection placeholders before
 # running the playbook.
-ansible_host: CHANGE_ME_PROXMOX_SSH_ADDRESS
+ansible_host: 192.168.0.48
 ansible_user: root
 
 # Hostname changes can disrupt an existing Proxmox cluster and /etc/hosts, so
