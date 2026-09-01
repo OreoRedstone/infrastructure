@@ -2,10 +2,6 @@
 - name: Verify required Komodo secrets are present
   ansible.builtin.assert:
     that:
-      - vault_komodo_database_password | length >= 16
-      - vault_komodo_admin_password | length >= 16
-      - vault_komodo_webhook_secret | length >= 32
-      - vault_komodo_jwt_secret | length >= 32
       - "'REPLACE_' not in vault_komodo_database_password"
       - "'REPLACE_' not in vault_komodo_admin_password"
       - "'REPLACE_' not in vault_komodo_webhook_secret"

@@ -155,7 +155,8 @@ currently the WireGuard endpoint for the existing networking VM.
    expect to re-onboard Periphery if those keys cannot be recovered.
    Copy non-secret settings from the old `.env` into `komodo_extra_env`; set
    the existing database credentials in the dedicated encrypted vault fields.
-   Preserve the old `ntfy.env` contents in the encrypted Ntfy variable.
+   The Ntfy wrapper is disabled for this migration and can be enabled later by
+   supplying its `ntfy.env` contents.
 5. **Move Periphery and validate locally.** Start Core and Periphery on
    Applications, connect Periphery to Core, then validate Komodo login and
    every application stack using the existing application repository.

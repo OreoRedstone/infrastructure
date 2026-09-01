@@ -33,5 +33,4 @@ komodo_disable_user_registration: true
 # Preserve non-secret settings from the current .env here (preferably via
 # encrypted vault data). Secret values should use the dedicated vault fields.
 komodo_extra_env: "{{ vault_komodo_extra_env | default({}) }}"
-komodo_ntfy_enabled: true
-komodo_ntfy_env_content: "{{ vault_komodo_ntfy_env | default('') }}"
+komodo_ntfy_enabled: false
