@@ -6,6 +6,7 @@ komodo_image_tag: latest
 komodo_mongo_image: mongo:8
 komodo_bind_address: 127.0.0.1
 komodo_additional_bind_addresses: []
+komodo_wait_host: 127.0.0.1
 komodo_core_access_cidrs: []
 komodo_host_url: http://127.0.0.1:9120
 komodo_core_container_name: komodo

@@ -73,7 +73,7 @@
 
 - name: Wait for Komodo Core to listen on the VPN
   ansible.builtin.wait_for:
-    host: "{{ komodo_bind_address }}"
+    host: "{{ komodo_wait_host }}"
     port: 9120
     timeout: 120
   when: komodo_publish_core_port | bool

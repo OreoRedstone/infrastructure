@@ -18,11 +18,8 @@ wireguard_peers:
 docker_users:
   - "{{ admin_user }}"
 
-komodo_bind_address: 10.13.13.2
-komodo_additional_bind_addresses:
-  - 192.168.0.100
-komodo_core_access_cidrs:
-  - 192.168.0.0/16
+komodo_bind_address: 0.0.0.0
+komodo_wait_host: 127.0.0.1
 komodo_host_url: http://10.13.13.2:9120
 komodo_image_tag: latest
 komodo_publish_core_port: true
@@ -37,7 +34,7 @@ komodo_ntfy_enabled: false
 
 # The VPS forwards public TCP/443 to this VM. Nginx terminates TLS here,
 # routes deploy.74services.net to Komodo, and sends all other hostnames to Traefik.
-nginx_reverse_proxy_deploy_server_name: deploy.*
+nginx_reverse_proxy_deploy_server_name: deploy.74services.net
 nginx_reverse_proxy_deploy_upstream: 127.0.0.1:9120
 nginx_reverse_proxy_default_upstream: 127.0.0.1:9999
 # Replace these with the certificate paths present on this VM.
