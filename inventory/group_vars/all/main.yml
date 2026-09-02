@@ -29,6 +29,8 @@ ufw_bootstrap_rules:
     from_ip: 192.168.0.0/16
     comment: Bootstrap SSH from LAN
 
-wireguard_interface: wg0
-wireguard_port: 51820
-wireguard_vpn_network: 10.13.13.0/24
+# The VPS already has an unmanaged wg0 for legacy/proxy services. Keep it
+# intact and run the Ansible-managed management VPN separately.
+wireguard_interface: wg1
+wireguard_port: 51821
+wireguard_vpn_network: 10.44.0.0/24

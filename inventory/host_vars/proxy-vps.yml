@@ -1,10 +1,12 @@
 ---
 ansible_host: 217.154.34.64
-ansible_user: root
+ansible_user: oreo
+ansible_become: true
+ansible_become_password: "{{ vault_vps_sudo_password }}"
 
 hostname: proxy-vps
 
-wireguard_address: 10.13.13.1/24
+wireguard_address: 10.44.0.1/24
 wireguard_endpoint: 217.154.34.64
 wireguard_is_hub: true
 wireguard_enable_peer_forwarding: true
@@ -12,11 +14,11 @@ wireguard_peers:
   - name: Applications
     host: application-vm
     allowed_ips:
-      - 10.13.13.2/32
+      - 10.44.0.2/32
   - name: Proxmox
     host: proxmox-host
     allowed_ips:
-      - 10.13.13.3/32
+      - 10.44.0.3/32
 
 # During migration, copy the old networking VM's public key and WireGuard
 # address here so Ansible can stage Applications without dropping that peer.
@@ -29,7 +31,7 @@ wireguard_external_peers:
   - name: Laptop
     public_key: "{{ vault_wireguard_laptop_public_key | default('') }}"
     allowed_ips:
-      - 10.13.13.4/32
+      - 10.44.0.4/32
 
 # Public SSH remains key-only during initial provisioning. Setting
 # bootstrap_mode to false removes this rule.
@@ -43,24 +45,24 @@ nginx_stream_proxies:
   - name: https
     protocol: tcp
     listen_port: 443
-    upstream_host: 10.13.13.2
+    upstream_host: 10.44.0.2
     upstream_port: 443
 
   - name: minecraft
     protocol: tcp
     listen_port: 25565
-    upstream_host: 10.13.13.2
+    upstream_host: 10.44.0.2
     upstream_port: 25565
 
   - name: space-engineers
     protocol: udp
     listen_port: 27016
-    upstream_host: 10.13.13.2
+    upstream_host: 10.44.0.2
     upstream_port: 27016
 
   - name: factorio
     protocol: udp
     listen_port: 34197
-    upstream_host: 10.13.13.2
+    upstream_host: 10.44.0.2
     upstream_port: 34197
     reuseport: true

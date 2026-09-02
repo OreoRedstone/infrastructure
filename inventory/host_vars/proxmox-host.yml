@@ -8,7 +8,7 @@ ansible_user: root
 # the common role leaves this host's current name alone.
 manage_hostname: false
 
-wireguard_address: 10.13.13.3/24
+wireguard_address: 10.44.0.3/24
 wireguard_peers:
   - name: VPS hub
     host: proxy-vps

@@ -1,12 +1,13 @@
 ---
-# Current LAN address; change to 10.13.13.2 after VPN management is verified.
+# Current LAN address; change to the 10.44.0.2 VPN address after verification.
 ansible_host: 192.168.0.100
 ansible_user: oreo
 ansible_become: true
+ansible_become_password: "{{ vault_applications_sudo_password }}"
 
 hostname: oreo-applications
 
-wireguard_address: 10.13.13.2/24
+wireguard_address: 10.44.0.2/24
 wireguard_peers:
   - name: VPS hub
     host: proxy-vps
@@ -20,7 +21,7 @@ docker_users:
 
 komodo_bind_address: 0.0.0.0
 komodo_wait_host: 127.0.0.1
-komodo_host_url: http://10.13.13.2:9120
+komodo_host_url: http://10.44.0.2:9120
 komodo_image_tag: latest
 komodo_publish_core_port: true
 komodo_join_nginx_network: false
