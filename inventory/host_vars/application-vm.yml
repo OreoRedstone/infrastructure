@@ -9,6 +9,12 @@ ansible_become_password: "{{ vault_applications_sudo_password }}"
 hostname: oreo-applications
 
 wireguard_address: 10.44.0.2/24
+
+# Prometheus runs in Docker on this host and reaches the host exporter via the
+# Docker bridge rather than via WireGuard.
+node_exporter_firewall_sources:
+  - "{{ wireguard_vpn_network }}"
+  - 172.16.0.0/12
 wireguard_peers:
   - name: VPS hub
     host: proxy-vps

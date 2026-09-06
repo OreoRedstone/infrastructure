@@ -1,0 +1,24 @@
+---
+- name: Install Node Exporter
+  ansible.builtin.apt:
+    name: "{{ node_exporter_package }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Enable and start Node Exporter
+  ansible.builtin.systemd:
+    name: "{{ node_exporter_service }}"
+    enabled: true
+    state: started
+
+- name: Permit Node Exporter from monitoring sources
+  community.general.ufw:
+    rule: allow
+    direction: in
+    port: "{{ node_exporter_port }}"
+    proto: tcp
+    from_ip: "{{ item }}"
+    comment: Node Exporter monitoring
+  loop: "{{ node_exporter_firewall_sources }}"
+  when: manage_ufw | bool

@@ -23,6 +23,14 @@
   roles:
     - firewall
 
+- name: Configure host metrics
+  hosts: all
+  become: true
+  tags: node_exporter
+
+  roles:
+    - node_exporter
+
 - name: Configure the public stream proxy
   hosts: vps
   become: true
