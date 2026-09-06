@@ -22,7 +22,7 @@ ufw_default_routed_policy: deny
 
 # Set this to false after importing the laptop WireGuard profile. Ansible will
 # then remove temporary SSH rules while retaining VPN management access.
-bootstrap_mode: true
+bootstrap_mode: false
 ufw_bootstrap_rules:
   - port: "22"
     proto: tcp
