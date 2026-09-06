@@ -1,6 +1,7 @@
 ---
-# Current LAN address; change to the 10.44.0.2 VPN address after verification.
-ansible_host: 192.168.0.100
+# Use the LAN address while bootstrapping, then manage this host over WireGuard.
+ansible_host_bootstrap: 192.168.0.100
+ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
 ansible_user: oreo
 ansible_become: true
 ansible_become_password: "{{ vault_applications_sudo_password }}"

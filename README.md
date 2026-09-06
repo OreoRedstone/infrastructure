@@ -87,8 +87,10 @@ After confirming `ping 10.13.13.1`, `.2`, and `.3` from the laptop:
 1. Set `bootstrap_mode: false` in `inventory/group_vars/all/main.yml`. This
    removes temporary Internet/LAN SSH and Proxmox UI rules and disables root
    login.
-2. Change each host's `ansible_user` to `oreo`. Change `ansible_host` to its
-   `10.13.13.x` address if management should be strictly VPN-only.
+2. Ensure each host's `ansible_user` is set to `oreo` where applicable. The
+   inventory now selects each host's WireGuard address automatically whenever
+   `bootstrap_mode` is false; it uses the recorded bootstrap address while the
+   mode is true.
 3. Run the complete playbook.
 
    ```sh

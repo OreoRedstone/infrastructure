@@ -1,5 +1,6 @@
 ---
-ansible_host: 217.154.34.64
+ansible_host_bootstrap: 217.154.34.64
+ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
 ansible_user: oreo
 ansible_become: true
 ansible_become_password: "{{ vault_vps_sudo_password }}"

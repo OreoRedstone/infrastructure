@@ -1,7 +1,8 @@
 ---
 # Proxmox VE is Debian-based. Replace these two connection placeholders before
 # running the playbook.
-ansible_host: 192.168.0.48
+ansible_host_bootstrap: 192.168.0.48
+ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
 ansible_user: root
 
 # Hostname changes can disrupt an existing Proxmox cluster and /etc/hosts, so
