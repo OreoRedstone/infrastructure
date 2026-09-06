@@ -22,7 +22,10 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
-        proxy_read_timeout 1h;
+        client_max_body_size {{ nginx_reverse_proxy_client_max_body_size }};
+        client_body_timeout {{ nginx_reverse_proxy_client_body_timeout }};
+        proxy_send_timeout {{ nginx_reverse_proxy_send_timeout }};
+        proxy_read_timeout {{ nginx_reverse_proxy_read_timeout }};
     }
 }
 
@@ -43,6 +46,9 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
-        proxy_read_timeout 1h;
+        client_max_body_size {{ nginx_reverse_proxy_client_max_body_size }};
+        client_body_timeout {{ nginx_reverse_proxy_client_body_timeout }};
+        proxy_send_timeout {{ nginx_reverse_proxy_send_timeout }};
+        proxy_read_timeout {{ nginx_reverse_proxy_read_timeout }};
     }
 }
