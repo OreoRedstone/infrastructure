@@ -20,6 +20,7 @@ komodo_database_username: komodo
 komodo_disable_user_registration: true
 komodo_extra_env: {}
 komodo_ntfy_enabled: false
+komodo_ntfy_image: foxxmd/komodo-ntfy-alerter:b008eb5
 komodo_ntfy_env_content: ""
 
 vault_komodo_database_password: ""

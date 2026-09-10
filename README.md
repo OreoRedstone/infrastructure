@@ -110,6 +110,12 @@ Nginx forwards these public ports to `10.13.13.2`: TCP `443`, TCP `25565`, UDP
 Komodo binds directly to `10.13.13.2:9120` and `192.168.0.100:9120`; no external
 Docker `nginx` network is required. Its Core and Periphery containers share
 their generated authentication keys, and Periphery connects outbound to Core.
+The Komodo Compose package also includes the optional `ntfy-wrapper` service,
+which is enabled for the application VM and publishes authenticated alerts to
+`https://ntfy.74services.net`. It listens only on Komodo's private Compose
+network at port `7000`; configure Komodo's Custom Alerter endpoint as
+`http://ntfy-wrapper:7000`. Its Ntfy token is stored in the encrypted
+`vault_komodo_ntfy_env` variable.
 MongoDB is not published on a host port. MongoDB and Komodo keys remain in
 Docker named volumes (`mongo-data`, `mongo-config`, and `keys`), matching the
 existing Compose deployment. The deployment follows Komodo's supported MongoDB

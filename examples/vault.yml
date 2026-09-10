@@ -12,7 +12,12 @@ vault_komodo_admin_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
 vault_komodo_webhook_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
 vault_komodo_jwt_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
 
-# Copy the existing networking VM's ntfy.env contents here if the wrapper is
-# retained. Encrypt this file before committing it.
+# The Komodo Ntfy wrapper publishes to the existing Ntfy service over HTTPS.
+# Create a dedicated Ntfy access token with write-only access to the `komodo`
+# topic, then replace the token below. Encrypt this file before committing it.
 vault_komodo_ntfy_env: |
-  REPLACE_WITH_CURRENT_NTFY_ENV_CONTENT
+  NTFY_URL=https://ntfy.74services.net
+  NTFY_TOPIC=komodo
+  NTFY_TOKEN=REPLACE_WITH_NTFY_ACCESS_TOKEN
+  LEVEL_IN_TITLE=true
+  INDICATE_RESOLVED=true

@@ -38,7 +38,8 @@ komodo_disable_user_registration: true
 # Preserve non-secret settings from the current .env here (preferably via
 # encrypted vault data). Secret values should use the dedicated vault fields.
 komodo_extra_env: "{{ vault_komodo_extra_env | default({}) }}"
-komodo_ntfy_enabled: false
+komodo_ntfy_enabled: true
+komodo_ntfy_env_content: "{{ vault_komodo_ntfy_env }}"
 
 # The VPS forwards public TCP/443 to this VM. Nginx terminates TLS here,
 # routes deploy.74services.net to Komodo, and sends all other hostnames to Traefik.

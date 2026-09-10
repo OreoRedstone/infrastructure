@@ -8,9 +8,13 @@
       - "'REPLACE_' not in vault_komodo_jwt_secret"
       - (not komodo_ntfy_enabled | bool) or (komodo_ntfy_env_content | length > 0)
       - (not komodo_ntfy_enabled | bool) or ('REPLACE_' not in komodo_ntfy_env_content)
+      - (not komodo_ntfy_enabled | bool) or ('NTFY_URL=' in komodo_ntfy_env_content)
+      - (not komodo_ntfy_enabled | bool) or ('NTFY_TOPIC=' in komodo_ntfy_env_content)
+      - (not komodo_ntfy_enabled | bool) or ('NTFY_TOKEN=' in komodo_ntfy_env_content)
     fail_msg: >-
-      Create inventory/group_vars/all/vault.yml with the four Komodo secrets
-      shown in examples/vault.yml, encrypt it with ansible-vault, and rerun.
+      Create inventory/group_vars/all/vault.yml with the Komodo secrets and
+      Ntfy wrapper environment shown in examples/vault.yml, encrypt it with
+      ansible-vault, and rerun.
   no_log: true
 
 - name: Create Komodo directories

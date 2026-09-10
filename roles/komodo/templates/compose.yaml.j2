@@ -77,8 +77,8 @@ services:
 
 {% if komodo_ntfy_enabled | bool %}
   ntfy-wrapper:
-    image: foxxmd/komodo-ntfy-alerter:latest
-    restart: always
+    image: {{ komodo_ntfy_image | to_json }}
+    restart: unless-stopped
     env_file:
       - ./ntfy.env
     labels:
