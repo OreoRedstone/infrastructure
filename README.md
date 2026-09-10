@@ -4,7 +4,8 @@ This Ansible repository builds a management VPN and application platform:
 
 - `proxy-vps` is the public WireGuard hub and Nginx TCP/UDP stream proxy.
 - `application-vm` runs Docker, Komodo Core, Komodo Periphery, and MongoDB.
-- `proxmox-host` joins WireGuard for management. It is treated as Debian, and
+- `proxmox-host` and `proxmox-backup-host` join WireGuard for management. They
+  are treated as Debian, and
   its hostname and routed VM traffic are deliberately left intact.
 - the controller laptop is an Arch Linux host at `10.13.13.4`; it can manage
   every node through the VPS without sending normal Internet traffic through
@@ -15,10 +16,11 @@ This Ansible repository builds a management VPN and application platform:
 
 | Node | WireGuard address | Role |
 | --- | --- | --- |
-| VPS | `10.13.13.1` | Public hub and stream proxy |
-| Applications | `10.13.13.2` | Docker and Komodo |
-| Proxmox | `10.13.13.3` | VPN-only management peer |
-| Laptop | `10.13.13.4` | Ansible controller |
+| VPS | `10.44.0.1` | Public hub and stream proxy |
+| Applications | `10.44.0.2` | Docker and Komodo |
+| Proxmox | `10.44.0.3` | VPN-only management peer |
+| Laptop | `10.44.0.4` | Ansible controller |
+| Backup Proxmox | `10.44.0.5` | VPN-only management peer and future backup/Immich guest host |
 
 The VPS enables forwarding only between `wg0` peers. There is no default route,
 masquerading, or Internet full tunnel.
@@ -82,7 +84,7 @@ Insert the laptop private key and the VPS public key reported by
 `show-vpn-public-keys.yml`. On Arch, install `wireguard-tools`, copy the profile
 to `/etc/wireguard/wg0.conf`, and run `sudo wg-quick up wg0`.
 
-After confirming `ping 10.13.13.1`, `.2`, and `.3` from the laptop:
+After confirming `ping 10.44.0.1`, `.2`, `.3`, and `.5` from the laptop:
 
 1. Set `bootstrap_mode: false` in `inventory/group_vars/all/main.yml`. This
    removes temporary Internet/LAN SSH and Proxmox UI rules and disables root
@@ -194,4 +196,30 @@ The Samba LXC is not automatically recreated by this playbook yet. Keep it in
 place during the application cutover. Once its mount path, share names, ACLs,
 and Samba users are documented, add it as a separate Ansible-managed storage
 host. If applications consume this share, migrate it before moving their
-containers and preserve ACLs/xattrs with an `rsync -aHAX --numeric-ids` copy.
+   containers and preserve ACLs/xattrs with an `rsync -aHAX --numeric-ids` copy.
+
+## Off-site Proxmox and Immich routing
+
+`proxmox-backup-host` manages the physical Proxmox node. Give the future
+Immich VM/LXC its own documented address and, if it needs VPN access, add it as
+a separate WireGuard peer rather than reusing the Proxmox host address. The
+guest should run its own Traefik/Immich stack and persist the library and
+database on storage included in the backup plan.
+
+The current VPS Nginx stream configuration forwards all TCP/443 to
+`application-vm`, so it cannot select an off-site backend by hostname. Practical
+options are:
+
+1. Terminate TLS at the VPS with an HTTP reverse proxy, then proxy the Immich
+   subdomain over WireGuard to the Immich guest and existing hostnames to
+   `application-vm`. This centralizes certificates; Traefik can still route
+   inside each backend.
+2. Keep TLS on both Traefik instances and add SNI inspection (`ssl_preread`)
+   plus a hostname-to-upstream map to the VPS Nginx stream configuration.
+3. Give the off-site site its own public edge/IP and point only the Immich DNS
+   record there, if inbound forwarding and a stable public IP are available.
+
+Do not point the Immich DNS record at the VPS while leaving the current
+catch-all TCP/443 stream unchanged: it will still reach the existing VM. For
+large photo uploads, preserve WebSocket support and use high body limits and
+long proxy timeouts.

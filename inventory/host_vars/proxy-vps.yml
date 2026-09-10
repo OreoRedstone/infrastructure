@@ -20,6 +20,10 @@ wireguard_peers:
     host: proxmox-host
     allowed_ips:
       - 10.44.0.3/32
+  - name: Backup Proxmox
+    host: proxmox-backup-host
+    allowed_ips:
+      - 10.44.0.5/32
 
 # During migration, copy the old networking VM's public key and WireGuard
 # address here so Ansible can stage Applications without dropping that peer.

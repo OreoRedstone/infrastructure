@@ -1,0 +1,31 @@
+---
+# New off-site Proxmox node. Replace the bootstrap address before provisioning.
+ansible_host_bootstrap: 192.168.0.49
+ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
+ansible_user: root
+
+# Do not rename an existing Proxmox installation; this avoids disturbing
+# cluster membership, /etc/hosts, or guest networking.
+manage_hostname: false
+
+wireguard_address: 10.44.0.5/24
+wireguard_peers:
+  - name: VPS hub
+    host: proxy-vps
+    endpoint: "{{ hostvars['proxy-vps']['wireguard_endpoint'] }}:{{ wireguard_port }}"
+    allowed_ips:
+      - "{{ wireguard_vpn_network }}"
+    persistent_keepalive: "{{ wireguard_persistent_keepalive }}"
+
+# Preserve forwarding through Proxmox bridges. UFW governs host input but must
+# not silently stop traffic to or from backup/Immich guests.
+ufw_default_routed_policy: allow
+ufw_bootstrap_rules:
+  - port: "22"
+    proto: tcp
+    from_ip: 192.168.0.0/16
+    comment: Bootstrap SSH from bootstrap LAN
+  - port: "8006"
+    proto: tcp
+    from_ip: 192.168.0.0/16
+    comment: Proxmox web UI from bootstrap LAN

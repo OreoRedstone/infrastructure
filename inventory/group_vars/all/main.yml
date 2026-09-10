@@ -2,7 +2,8 @@
 timezone: Europe/London
 
 admin_user: oreo
-admin_authorized_keys: []
+admin_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINGg9jvaW7UlW4sGMAoEDQsmpNryP0GzfgkmD1S8kTvV oreo@oreos-laptop
 
 ssh_password_authentication: false
 ssh_permit_root_login: false
