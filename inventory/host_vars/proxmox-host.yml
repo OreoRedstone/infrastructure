@@ -3,7 +3,8 @@
 # running the playbook.
 ansible_host_bootstrap: 192.168.0.48
 ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
-ansible_user: root
+ansible_user: "{{ 'root' if (bootstrap_mode | bool) else admin_user }}"
+ansible_become: true
 
 # Hostname changes can disrupt an existing Proxmox cluster and /etc/hosts, so
 # the common role leaves this host's current name alone.

@@ -1,225 +1,217 @@
 # Infrastructure playbook
 
-This Ansible repository builds a management VPN and application platform:
+This repository configures the hosts that form the management and application
+platform. It does not provision Proxmox guests, an Immich stack, or the Samba
+LXC; those remain separate workloads.
 
-- `proxy-vps` is the public WireGuard hub and Nginx TCP/UDP stream proxy.
-- `application-vm` runs Docker, Komodo Core, Komodo Periphery, and MongoDB.
-- `proxmox-host` and `proxmox-backup-host` join WireGuard for management. They
-  are treated as Debian, and
-  its hostname and routed VM traffic are deliberately left intact.
-- the controller laptop is an Arch Linux host at `10.13.13.4`; it can manage
-  every node through the VPS without sending normal Internet traffic through
-  the VPN. During migration, the laptop can still reach Proxmox directly over
-  the existing LAN.
+## Managed hosts
 
-## Address plan
+| Host | Group | WireGuard address | Purpose |
+| --- | --- | --- | --- |
+| `proxy-vps` | `vps`, `vpn` | `10.44.0.1` | Public WireGuard hub and Nginx stream proxy |
+| `application-vm` | `applications`, `vpn` | `10.44.0.2` | Docker, Komodo, MongoDB, and backend reverse proxy |
+| `proxmox-host` | `proxmox`, `vpn` | `10.44.0.3` | Proxmox management peer |
+| `proxmox-backup-host` | `proxmox`, `vpn` | `10.44.0.5` | Off-site Proxmox management peer; future backup/Immich guest host |
+| Laptop | external peer | `10.44.0.4` | Ansible controller and management client |
 
-| Node | WireGuard address | Role |
-| --- | --- | --- |
-| VPS | `10.44.0.1` | Public hub and stream proxy |
-| Applications | `10.44.0.2` | Docker and Komodo |
-| Proxmox | `10.44.0.3` | VPN-only management peer |
-| Laptop | `10.44.0.4` | Ansible controller |
-| Backup Proxmox | `10.44.0.5` | VPN-only management peer and future backup/Immich guest host |
+The managed WireGuard interface is `wg1`, using UDP port `51821` and network
+`10.44.0.0/24`. The VPS forwards traffic between VPN peers only. It is not an
+Internet gateway: there is no default route or masquerading for VPN clients.
 
-The VPS enables forwarding only between `wg0` peers. There is no default route,
-masquerading, or Internet full tunnel.
+## Repository layout
 
-## First run
+- `inventory/hosts.yml` defines host groups and VPN membership.
+- `inventory/host_vars/` contains connection addresses and host settings.
+- `inventory/group_vars/` contains shared settings and encrypted secrets.
+- `playbooks/playbook.yml` applies the common, VPN, firewall, metrics, proxy,
+  Docker, and Komodo roles.
+- `roles/` contains reusable Ansible roles.
+- `examples/` contains the vault template and laptop WireGuard profile.
 
-1. Install Ansible dependencies:
+## Prerequisites
 
-   ```sh
-   ansible-galaxy collection install -r requirements.yml
-   ```
+Install the required Ansible collections:
 
-2. Replace the `CHANGE_ME_*` SSH addresses in `inventory/host_vars`. Leave the
-   VPS endpoint in `wireguard_endpoint` public even if its later `ansible_host`
-   changes to `10.13.13.1`.
+```sh
+ansible-galaxy collection install -r requirements.yml
+```
 
-3. Add one or more public keys to `admin_authorized_keys` in
-   `inventory/group_vars/all/main.yml`. Root key login remains available while
-   `bootstrap_mode` is true; passwords are disabled immediately.
+Set the bootstrap SSH addresses in `inventory/host_vars/` before provisioning:
 
-   The default bootstrap creates `oreo` with locked password authentication but
-   grants it passwordless sudo, so Ansible does not require a become password.
-   If your policy requires password-protected sudo, set
-   `admin_sudo_nopasswd: false`, provide a sudo password securely, and run with
-   `ansible-playbook -K`.
+- `application-vm`: `192.168.0.100`
+- `proxmox-host`: `192.168.0.48`
+- `proxmox-backup-host`: `192.168.0.49`
+- `proxy-vps`: `217.154.34.64`
 
-4. Create the encrypted variables file:
+Keep the VPS `wireguard_endpoint` as its public address. After bootstrap,
+Ansible automatically selects each managed host's WireGuard address.
 
-   ```sh
-   cp examples/vault.yml inventory/group_vars/all/vault.yml
-   ansible-vault encrypt inventory/group_vars/all/vault.yml
-   ```
+Add administrators' public SSH keys to
+`inventory/group_vars/all/main.yml`:
 
-   Replace all example values first. Generate random Komodo values with a
-   password manager or `openssl rand -base64 48`.
+```yaml
+admin_authorized_keys:
+  - ssh-ed25519 AAAA... laptop
+```
 
-5. Check connectivity and deploy the managed VPN peers together:
+Public keys are safe to commit; private SSH and WireGuard keys are not. Managed
+hosts generate their own WireGuard keys under `/etc/wireguard/`; back up those
+private keys securely, but never put them in this repository.
 
-   ```sh
-   ansible all -m ping
-   ansible-playbook playbooks/playbook.yml --tags common,wireguard,firewall
-   ansible-playbook playbooks/show-vpn-public-keys.yml
-   ```
+Create the encrypted variables file if it does not already exist:
 
-Managed servers generate their own WireGuard keys on first use. Back up
-`/etc/wireguard/wg0.key` from each node securely; it is never stored in this
-repository.
+```sh
+cp examples/vault.yml inventory/group_vars/all/vault.yml
+# Replace every REPLACE_* value, then:
+ansible-vault encrypt inventory/group_vars/all/vault.yml
+```
 
-## Join the laptop
+The vault contains the laptop public key and Komodo credentials. Supply the
+vault password with `--ask-vault-pass` or the normal local vault-password-file
+mechanism for every command that loads this inventory.
 
-Generate a laptop key pair outside this repository:
+## Initial provisioning and VPN onboarding
+
+During bootstrap, temporary SSH rules permit access from the LAN (and from the
+Internet for the VPS). Proxmox host entries use `root` while
+`bootstrap_mode` is true. Once the administrator account exists, they switch
+to `oreo` and use privilege escalation automatically.
+
+Run the first VPN deployment against the complete `vpn` group. This is
+required because the VPS renders peer configuration from public-key facts
+collected from every managed VPN host:
+
+```sh
+ansible vpn -m ping --ask-vault-pass -e bootstrap_mode=true
+ansible-playbook playbooks/playbook.yml \
+  --limit vpn \
+  --tags common,wireguard,firewall,node_exporter \
+  --ask-vault-pass \
+  -e bootstrap_mode=true
+```
+
+Do not limit the first WireGuard run to only the new host or the VPS. All four
+hosts must be reachable and complete key collection in the same run. Inspect
+generated public keys with:
+
+```sh
+ansible-playbook playbooks/show-vpn-public-keys.yml --ask-vault-pass
+```
+
+## Laptop VPN
+
+Generate the laptop key pair outside the repository:
 
 ```sh
 umask 077
 wg genkey | tee laptop.key | wg pubkey
 ```
 
-Put the printed public key in `vault_wireguard_laptop_public_key`, rerun the
-WireGuard play, then copy `examples/laptop-wg0.conf` outside the repository.
-Insert the laptop private key and the VPS public key reported by
-`show-vpn-public-keys.yml`. On Arch, install `wireguard-tools`, copy the profile
-to `/etc/wireguard/wg0.conf`, and run `sudo wg-quick up wg0`.
+Put only the printed public key in encrypted
+`vault_wireguard_laptop_public_key`. Copy `examples/laptop-wg0.conf` outside
+the repository, replace its placeholders, and install it as
+`/etc/wireguard/wg1.conf` on the laptop. The example's
+`AllowedIPs = 10.44.0.0/24` routes only management traffic; it does not
+create a full-tunnel Internet VPN.
 
-After confirming `ping 10.44.0.1`, `.2`, `.3`, and `.5` from the laptop:
+After bringing up the profile, verify `10.44.0.1`, `.2`, `.3`, and `.5`
+from the laptop. Then set `bootstrap_mode: false` in
+`inventory/group_vars/all/main.yml` and run:
 
-1. Set `bootstrap_mode: false` in `inventory/group_vars/all/main.yml`. This
-   removes temporary Internet/LAN SSH and Proxmox UI rules and disables root
-   login.
-2. Ensure each host's `ansible_user` is set to `oreo` where applicable. The
-   inventory now selects each host's WireGuard address automatically whenever
-   `bootstrap_mode` is false; it uses the recorded bootstrap address while the
-   mode is true.
-3. Run the complete playbook.
+```sh
+ansible-playbook playbooks/playbook.yml --ask-vault-pass
+```
 
-   ```sh
-   ansible-playbook playbooks/playbook.yml
-   ```
+This removes temporary bootstrap firewall rules and disables root SSH login.
+The Proxmox hosts remain manageable as `oreo` through WireGuard.
 
 ## Services and firewall
 
-UFW denies incoming and routed traffic by default, permits the management VPN,
-opens `51820/udp` on the VPS, and opens the configured public stream ports. The
-Proxmox routed policy remains `allow` so enabling UFW does not stop guest bridge
-traffic. Review that exception if Proxmox's own firewall is already enabled.
+The firewall defaults to deny incoming and routed traffic and allow outgoing
+traffic. It permits the management VPN, the VPS WireGuard endpoint on
+`51821/udp`, and configured public stream ports. Proxmox hosts set the routed
+policy to `allow` so UFW does not silently break guest bridge traffic; review
+that exception if Proxmox's own firewall is enabled.
 
-Nginx forwards these public ports to `10.13.13.2`: TCP `443`, TCP `25565`, UDP
-`27016`, and UDP `34197`. It does not terminate TLS.
+The VPS Nginx stream proxy forwards these ports to `application-vm`
+(`10.44.0.2`) without terminating TLS:
 
-Komodo binds directly to `10.13.13.2:9120` and `192.168.0.100:9120`; no external
-Docker `nginx` network is required. Its Core and Periphery containers share
-their generated authentication keys, and Periphery connects outbound to Core.
-The Komodo Compose package also includes the optional `ntfy-wrapper` service,
-which is enabled for the application VM and publishes authenticated alerts to
-`https://ntfy.74services.net`. It listens only on Komodo's private Compose
-network at port `7000`; configure Komodo's Custom Alerter endpoint as
-`http://ntfy-wrapper:7000`. Its Ntfy token is stored in the encrypted
-`vault_komodo_ntfy_env` variable.
-MongoDB is not published on a host port. MongoDB and Komodo keys remain in
-Docker named volumes (`mongo-data`, `mongo-config`, and `keys`), matching the
-existing Compose deployment. The deployment follows Komodo's supported MongoDB
-Compose layout:
+| Public protocol/port | Backend port | Workload |
+| --- | --- | --- |
+| TCP `443` | TCP `443` | HTTPS/application reverse proxy |
+| TCP `25565` | TCP `25565` | Minecraft |
+| UDP `27016` | UDP `27016` | Space Engineers |
+| UDP `34197` | UDP `34197` | Factorio |
 
-- <https://komo.do/docs/setup/mongo>
-- <https://komo.do/docs/setup/connect-servers>
+On `application-vm`, Nginx terminates HTTPS for `deploy.74services.net` and
+passes other hostnames to local Traefik at `127.0.0.1:9999`. The certificate
+paths are configured in `inventory/host_vars/application-vm.yml` and must
+exist on that VM.
 
-## Useful commands
+The application VM also runs Komodo Core, Periphery, MongoDB, and the optional
+authenticated Ntfy wrapper. Komodo Core is published on port `9120` for the
+management VPN and configured LAN sources. MongoDB is not published on a host
+port. Compose volumes persist MongoDB data, Komodo keys, and Komodo backups.
+
+## Off-site Immich routing
+
+The physical `proxmox-backup-host` is only a managed Proxmox node. Create a
+separate Immich VM or LXC and give that guest its own address and documented
+networking. Do not reuse `10.44.0.5), which belongs to the Proxmox host. This
+repository currently has no Immich deployment role; manage the guest's Docker
+Compose and Traefik configuration separately until that is added.
+
+The current VPS TCP/443 stream is opaque and sends every hostname to
+`application-vm`. Pointing `immich.example.net` at the VPS does not by itself
+route it to the off-site guest. Sensible designs are:
+
+1. Terminate TLS at the VPS and use an HTTP reverse proxy to send the Immich
+   hostname over WireGuard to the guest. Existing application hostnames can
+   continue to go to `application-vm); certificates are centralized.
+2. Add SNI-aware TLS passthrough to the VPS Nginx stream configuration using
+   `ssl_preread`, with certificates and Traefik on both backends.
+3. Publish the Immich guest through a separate off-site public edge and point
+   only its DNS record there, if the site has a stable public IP and safe
+   inbound forwarding.
+
+For Immich, preserve WebSocket support, allow large request bodies, use long
+proxy timeouts, and ensure the photo library and database are included in
+off-site backups.
+
+## Validation and operations
 
 ```sh
 ansible-inventory --graph
-ansible-playbook playbooks/playbook.yml --syntax-check
-# Use check mode after the managed hosts have generated their WireGuard keys.
-ansible-playbook playbooks/playbook.yml --check --diff
+ansible-playbook playbooks/playbook.yml --syntax-check --ask-vault-pass
+ansible-playbook playbooks/playbook.yml --check --diff --ask-vault-pass
+git diff --check
 ```
 
-Do not use `--limit` for the first WireGuard run: public-key facts are collected
-from the complete `vpn` group before peer configurations are rendered.
+After VPN deployment, check on each host:
 
-## Migration runbook (reuse the current VPS)
+```sh
+sudo wg show wg1
+sudo systemctl status wg-quick@wg1
+```
 
-The migration should be performed in this order. Do not reimage the VPS until
-the Applications VM and Proxmox peer have been prepared, because the VPS is
-currently the WireGuard endpoint for the existing networking VM.
+The first WireGuard run should not use a narrow `--limit`; later service-only
+changes may be limited safely once all peer facts are available.
 
-1. **Capture state and stop writes.** Save the current VPS WireGuard/Nginx/UFW
-   configuration, the networking VM's `/etc/komodo`, its Komodo Compose file,
-   MongoDB Docker volume names, and the Applications VM's Docker state. Stop
-   Komodo schedules and application writes during the final database copy.
-2. **Snapshot everything.** Take provider snapshots of the VPS, Proxmox VM/LXC
-   snapshots, and an off-host backup of the application disk and Samba data.
-   Keep the networking VM powered off—not deleted—for rollback.
-3. **Prepare Applications in place.** Keep `192.168.0.100` and its application
-   virtual disk. Install Docker and the new WireGuard client with Ansible. Do
-   not enable the new Komodo Compose project yet.
-4. **Move Komodo state.** Stop the old Core on the networking VM. Back up and
-   restore the existing MongoDB Docker volumes and Core/Periphery key volume.
-   Keep the Compose project name `komodo` so its named volumes are reused; if
-   the old project used different names, set explicit volume names before the
-   first deployment. Validate ownership, database credentials, and key files
-   before starting Compose. Never run both Cores against the same MongoDB data.
-   The current Compose file does not mount a persistent Core/Periphery key
-   volume, so capture the running containers' Komodo authentication state and
-   expect to re-onboard Periphery if those keys cannot be recovered.
-   Copy non-secret settings from the old `.env` into `komodo_extra_env`; set
-   the existing database credentials in the dedicated encrypted vault fields.
-   The Ntfy wrapper is disabled for this migration and can be enabled later by
-   supplying its `ntfy.env` contents.
-5. **Move Periphery and validate locally.** Start Core and Periphery on
-   Applications, connect Periphery to Core, then validate Komodo login and
-   every application stack using the existing application repository.
-6. **Add WireGuard peers.** Configure Applications (`10.13.13.2`) and Proxmox
-   (`10.13.13.3`) as peers. Before applying the VPS role, put the current
-   networking VM peer in `wireguard_transition_peers`; this keeps the old
-   client connected while Applications is tested. Verify laptop-to-Proxmox and
-   laptop-to-Applications access while the old path is still available.
-   First compare the old networking peer's VPN address with the new address
-   plan. If it already uses `10.13.13.2` (or another address reserved above),
-   stage Applications on a temporary unused address such as `10.13.13.10` and
-   change the Nginx upstream only after the old peer is removed. Never run two
-   peers with the same `AllowedIPs`.
-7. **Reconfigure the VPS in place.** Use the provider console or rescue mode,
-   not only SSH. Preserve the public IP, install the Ansible-managed WireGuard
-   hub, and change Nginx upstreams to `10.13.13.2`. Keep the VPS snapshot until
-   the public ports have passed external tests.
-8. **Cut over and retire the networking VM.** Remove
-   `wireguard_transition_peers`, then confirm all four stream ports,
-   Komodo, storage mounts, and application health. Then stop the networking VM.
-   Leave it and its snapshot available for at least 72 hours before deletion.
-9. **Close bootstrap access.** Once the Arch laptop VPN is working, set
-   `bootstrap_mode: false`, switch Ansible users to `oreo`, and optionally use
-   the WireGuard addresses as `ansible_host` values.
+## Migration notes
 
-The Samba LXC is not automatically recreated by this playbook yet. Keep it in
-place during the application cutover. Once its mount path, share names, ACLs,
-and Samba users are documented, add it as a separate Ansible-managed storage
-host. If applications consume this share, migrate it before moving their
-   containers and preserve ACLs/xattrs with an `rsync -aHAX --numeric-ids` copy.
+The existing VPS remains the public edge and WireGuard hub. Before any VPS
+reimage or major cutover, capture its WireGuard, Nginx, and UFW state and take
+provider and guest snapshots. Keep the old networking VM available for rollback
+until the replacement application platform and public ports have been tested.
 
-## Off-site Proxmox and Immich routing
+The Samba LXC is not recreated by this playbook. Keep it in place until its
+mount paths, shares, ACLs, users, and backup requirements are documented. When
+migrating its data, preserve ownership, ACLs, and extended attributes with:
 
-`proxmox-backup-host` manages the physical Proxmox node. Give the future
-Immich VM/LXC its own documented address and, if it needs VPN access, add it as
-a separate WireGuard peer rather than reusing the Proxmox host address. The
-guest should run its own Traefik/Immich stack and persist the library and
-database on storage included in the backup plan.
+```sh
+rsync -aHAX --numeric-ids SOURCE/ DESTINATION/
+```
 
-The current VPS Nginx stream configuration forwards all TCP/443 to
-`application-vm`, so it cannot select an off-site backend by hostname. Practical
-options are:
-
-1. Terminate TLS at the VPS with an HTTP reverse proxy, then proxy the Immich
-   subdomain over WireGuard to the Immich guest and existing hostnames to
-   `application-vm`. This centralizes certificates; Traefik can still route
-   inside each backend.
-2. Keep TLS on both Traefik instances and add SNI inspection (`ssl_preread`)
-   plus a hostname-to-upstream map to the VPS Nginx stream configuration.
-3. Give the off-site site its own public edge/IP and point only the Immich DNS
-   record there, if inbound forwarding and a stable public IP are available.
-
-Do not point the Immich DNS record at the VPS while leaving the current
-catch-all TCP/443 stream unchanged: it will still reach the existing VM. For
-large photo uploads, preserve WebSocket support and use high body limits and
-long proxy timeouts.
+Never run two Komodo Cores against the same MongoDB data. Validate application
+data, storage mounts, VPN peers, public ports, and backups before retiring old
+services.
