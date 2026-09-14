@@ -11,6 +11,9 @@ vault_komodo_database_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
 vault_komodo_admin_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
 vault_komodo_webhook_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
 vault_komodo_jwt_secret: REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
+# Create this in Komodo Core under Settings / Onboarding. It is used only for
+# first connection of the remote immich2 Periphery agent.
+vault_komodo_periphery_onboarding_key: REPLACE_WITH_KOMODO_PERIPHERY_ONBOARDING_KEY
 
 # The Komodo Ntfy wrapper publishes to the existing Ntfy service over HTTPS.
 # Create a dedicated Ntfy access token with write-only access to the `komodo`

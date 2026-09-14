@@ -6,6 +6,11 @@
       - "'REPLACE_' not in vault_komodo_admin_password"
       - "'REPLACE_' not in vault_komodo_webhook_secret"
       - "'REPLACE_' not in vault_komodo_jwt_secret"
+      - >-
+        komodo_deploy_core | bool or
+        (komodo_periphery_core_address | length > 0 and
+        vault_komodo_periphery_onboarding_key | length > 0 and
+        'REPLACE_' not in vault_komodo_periphery_onboarding_key)
       - (not komodo_ntfy_enabled | bool) or (komodo_ntfy_env_content | length > 0)
       - (not komodo_ntfy_enabled | bool) or ('REPLACE_' not in komodo_ntfy_env_content)
       - (not komodo_ntfy_enabled | bool) or ('NTFY_URL=' in komodo_ntfy_env_content)
@@ -62,14 +67,14 @@
   no_log: true
   register: komodo_compose_file
 
-- name: Deploy Komodo Core, Periphery, and MongoDB
+- name: Deploy Komodo services
   community.docker.docker_compose_v2:
     project_src: "{{ komodo_project_directory }}"
     project_name: komodo
     files:
       - compose.yaml
     state: present
-    pull: missing
+    pull: always
     remove_orphans: true
     recreate: >-
       {{ (komodo_environment is changed or komodo_compose_file is changed)

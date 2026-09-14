@@ -30,3 +30,17 @@ ufw_bootstrap_rules:
     proto: tcp
     from_ip: 192.168.68.0/24
     comment: Bootstrap SSH from off-site LAN
+
+docker_users:
+  - "{{ admin_user }}"
+
+# immich2 runs only the Komodo Periphery agent. Core and MongoDB remain on the
+# primary application VM and are reached over WireGuard.
+komodo_deploy_core: false
+komodo_first_server_name: immich2
+komodo_periphery_core_address: ws://10.44.0.2:9120
+komodo_host_url: http://10.44.0.2:9120
+komodo_image_tag: "2"
+komodo_periphery_ssl_enabled: false
+komodo_ntfy_enabled: false
+komodo_extra_env: {}

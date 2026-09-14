@@ -71,3 +71,18 @@
       tags:
         - applications
         - nginx
+
+- name: Configure the offsite application platform
+  hosts: offsite_applications
+  become: true
+
+  roles:
+    - role: docker
+      tags:
+        - offsite_applications
+        - docker
+        - komodo
+    - role: komodo
+      tags:
+        - offsite_applications
+        - komodo

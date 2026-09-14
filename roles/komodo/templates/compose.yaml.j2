@@ -1,6 +1,7 @@
 # Managed by Ansible. Credentials are rendered into this root-only file to
 # match the existing Compose deployment and avoid local-secret permission issues.
 services:
+{% if komodo_deploy_core | bool %}
   mongo:
     image: {{ komodo_mongo_image | to_json }}
     command: --quiet --wiredTigerCacheSizeGB 0.25
@@ -57,13 +58,16 @@ services:
     volumes:
       - keys:/config/keys
       - {{ (komodo_backups_directory ~ ':/backups') | to_json }}
+{% endif %}
 
   periphery:
     image: ghcr.io/moghtech/komodo-periphery:{{ komodo_image_tag }}
     init: true
     restart: unless-stopped
+{% if komodo_deploy_core | bool %}
     depends_on:
       - core
+{% endif %}
 {% if komodo_join_nginx_network | bool %}
     networks:
       - default
@@ -87,9 +91,11 @@ services:
 {% endif %}
 
 volumes:
+  keys:
+{% if komodo_deploy_core | bool %}
   mongo-data:
   mongo-config:
-  keys:
+{% endif %}
 {% if komodo_join_nginx_network | bool %}
 
 networks:

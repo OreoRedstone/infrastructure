@@ -28,8 +28,10 @@ docker_users:
 
 komodo_bind_address: 0.0.0.0
 komodo_wait_host: 127.0.0.1
-komodo_host_url: http://10.44.0.2:9120
-komodo_image_tag: latest
+komodo_host_url: https://deploy.74services.net
+komodo_image_tag: "2"
+komodo_periphery_ssl_enabled: false
+komodo_periphery_server_enabled: true
 komodo_publish_core_port: true
 komodo_join_nginx_network: false
 komodo_first_server_name: oreo-applications
