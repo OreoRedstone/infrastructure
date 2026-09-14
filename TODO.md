@@ -1,142 +1,122 @@
 # Infrastructure TODO
 
-## Off-site photo backup and recovery architecture
+## immich2 off-site deployment
 
-### Context
+### Current state
 
-- `proxmox-backup-host` is an off-site server provided by a friend to run a
-  subscription-free photo backup service, currently Immich.
-- It should be managed through this infrastructure repository and exposed via
-  the existing domain.
-- The off-site host is also a useful second location for encrypted backups of
-  important data, with the primary and off-site locations able to exchange
-  recovery copies.
-- Immich is currently the only planned application at that location, although
-  the host may later carry other isolated workloads.
+- `proxmox-backup-host` is the friend's off-site Proxmox hypervisor. Keep it
+  outside Docker and outside the application routing layer.
+- Create a separate guest named `immich2` for the photo backup service.
+- The VPS already terminates HTTPS and routes `immich.74services.net` to the
+  staged backend `10.44.0.6:2283`.
+- The VPS certificate has been copied into the configured `/etc/letsencrypt`
+  paths. ACME renewal automation remains future work.
+- `10.44.0.5` remains reserved for `proxmox-backup-host`; do not assign it to
+  `immich2`.
 
-### Architectural findings
+### Guest and disk design
 
-- Keep the Proxmox host itself outside Docker Swarm. It remains a hypervisor
-  and should not become a general application node.
-- Provision a dedicated Immich VM or LXC on the off-site Proxmox host. Give it
-  its own WireGuard identity and address; do not reuse `10.44.0.5`, which is
-  assigned to `proxmox-backup-host`.
-- The VPS should remain the public edge. Terminate HTTPS there and forward
-  traffic privately over WireGuard to the Immich guest. Certificates are now
-  configured on the VPS and are expected to be installed manually until ACME
-  automation is added. Do not copy TLS private keys to the off-site host.
-- The manually installed VPS certificate must cover every public hostname,
-  including `immich.74services.net` (for example through a SAN or wildcard).
-- Keep the Immich deployment separate from the main application deployment,
-  both operationally and in the stacks repository. A separate Komodo Stack
-  resource can deploy the off-site Git-backed stack.
-- Treat the off-site location primarily as a storage and recovery boundary,
-  not as a normal compute pool. The photo library, Immich database, thumbnails,
-  and machine-learning data should remain pinned to storage local to the
-  Immich guest.
-- Prefer a VM for Immich. It gives Docker a normal kernel, stronger isolation
-  from the Proxmox host, and simpler disk migration/recovery. An unprivileged
-  LXC is lighter, but Docker-in-LXC usually needs nesting/feature exceptions
-  and creates a less portable security and troubleshooting boundary. Use LXC
-  only if the host's established operational model makes its trade-offs
-  worthwhile.
-- Use two virtual disks in the Immich guest: an SSD-backed OS disk and a
-  separate data disk for the photo library. Keep the OS, Docker metadata,
-  PostgreSQL database, and model cache on the SSD. Put Immich's
-  `UPLOAD_LOCATION` on the data disk, mounted at a stable path such as
-  `/srv/immich/library`.
-- When the HDD arrives, attach it as a separate Proxmox virtual disk backed by
-  HDD storage, format it in the guest with a Linux filesystem, mount it by
-  UUID, and migrate the library before changing `UPLOAD_LOCATION`. Do not use
-  an anonymous Docker volume for the photo library. Keep PostgreSQL on local
-  SSD unless capacity forces a change; Immich recommends local SSD for its
-  database and does not support a network share for it.
-- Keep the recovery repository separate from the live Immich library where
-  possible. A second disk or an independent backup target is preferable to
-  storing the only backup copy on the same HDD as the photos.
-- Do not introduce a cross-site Swarm solely for one Immich installation. A
-  Swarm overlay across the WireGuard/WAN link adds control-plane, MTU,
-  firewall, quorum, and persistent-storage concerns without providing useful
-  failover for a stateful photo service.
-- If a Swarm is adopted for the main application platform, keep the Immich
-  guest as a worker or as an independent Compose host initially. Do not make
-  the Immich workload a Swarm manager merely to obtain routing.
-- If a future multi-site Swarm becomes justified, use a separate small manager
-  VM at the off-site location rather than granting the Immich workload
-  cluster-manager privileges. Three managers are needed for useful quorum
-  tolerance; two managers do not provide fault tolerance for manager loss.
+- [ ] Provision `immich2` as a VM, preferred over LXC for Docker isolation,
+      normal kernel behaviour, portability, and recovery simplicity.
+- [ ] Use an SSD-backed OS virtual disk for the guest OS, Docker metadata,
+      PostgreSQL, Redis/Valkey, and Immich machine-learning model cache.
+- [ ] Use a separate virtual data disk for the Immich media library. Mount it
+      inside the guest at `/srv/immich2/library` using a filesystem UUID.
+- [ ] Initially place the data virtual disk on SSD storage if the HDD is not
+      available yet.
+- [ ] When the HDD arrives, move that virtual disk to Proxmox HDD storage,
+      preserving the guest disk identity and mount path. Stop Immich and verify
+      the filesystem and data before bringing it back up.
+- [ ] Do not put PostgreSQL on a network share. Immich recommends local SSD
+      storage for the database; use `DB_DATA_LOCATION` on the OS SSD.
+- [ ] Keep the backup repository separate from the live photo-library disk if
+      possible. A second disk or independent backup target is preferred.
 
-### Routing direction
+### Networking and access
 
-Preferred initial design:
+- [x] Add `immich2` as a separate inventory host with reserved WireGuard
+      address `10.44.0.6` and bootstrap address `192.168.68.107`.
+- [ ] Before bootstrap, deploy the VPS peer route and update the laptop profile
+      with `192.168.68.107/32`; the off-site Proxmox host must forward that route
+      to its LAN and provide a return route (or narrowly scoped SNAT).
+- [ ] Bootstrap only `immich2` while it is in the inventory `bootstrap` group,
+      install WireGuard, then enroll it in the managed `vpn` inventory group
+      and remove it from `bootstrap` to replace the temporary LAN path with
+      `10.44.0.6`.
+- [ ] Add the VPS as the WireGuard peer and verify bidirectional connectivity.
+- [ ] Permit Immich's internal HTTP endpoint on port `2283` only from the VPS
+      WireGuard address/network; do not expose it directly to the Internet.
+- [ ] Permit SSH and management access only through the intended management
+      network.
+- [ ] Verify the off-site link's MTU and upload performance before importing a
+      large photo library.
 
-```text
-Internet
-  -> VPS edge proxy / TLS termination
-  -> WireGuard
-  -> Immich guest reverse proxy or Immich HTTP endpoint
-  -> Immich services and local storage
-```
+### Immich Compose deployment
 
-The first implementation can use an explicit VPS route for the Immich
-hostname. If more applications are later deployed off-site, revisit dynamic
-discovery using one of these approaches:
+- [ ] Add a dedicated `immich2` stack in the stacks repository and keep it
+      separate from the application VM stacks.
+- [ ] Use Immich's official Docker Compose deployment, pinning a tested
+      `IMMICH_VERSION` rather than tracking an unbounded latest image.
+- [ ] Set `UPLOAD_LOCATION=/srv/immich2/library`.
+- [ ] Set `DB_DATA_LOCATION` to a local SSD path such as
+      `/var/lib/immich2/postgres`.
+- [ ] Keep the database, Redis/Valkey, and machine-learning services private
+      to the Compose network; publish only Immich HTTP/2283 to the WireGuard
+      interface or host firewall scope needed by the VPS.
+- [ ] Configure hardware acceleration only after the CPU deployment is stable
+      and the off-site host's hardware is known.
+- [ ] Configure long request timeouts, WebSockets, and a large request body at
+      the VPS reverse proxy for photo/video uploads.
+- [ ] Use a dedicated Immich database password and secrets; do not commit
+      them to the stacks repository.
+- [ ] Register the guest with Komodo Periphery and create a separate Git-backed
+      Stack resource with webhook-based redeployment.
 
-1. A local Traefik on the Immich guest plus a small, authenticated route
-   synchronizer/aggregator on the VPS.
-2. `traefik-kop` and Redis if several independent Docker hosts need to publish
-   ordinary Compose labels to one central Traefik.
-3. Docker Swarm with native Traefik discovery if the main application hosts
-   are deliberately converted into one cluster.
+### VPS routing and TLS
 
-The first option is appropriate for the current single-application scope, but
-the aggregator plugins found so far are small community projects. Do not make
-the off-site backup service dependent on an untested plugin before validating
-failure and stale-route behaviour.
+- [x] Deploy VPS HTTPS hostname routing for `immich.74services.net`.
+- [x] Install the manually managed VPS certificate and key.
+- [ ] Confirm the certificate covers `immich.74services.net` and
+      `deploy.74services.net`.
+- [ ] Update `10.44.0.6:2283` in `inventory/host_vars/proxy-vps.yml` if the
+      final WireGuard allocation changes.
+- [ ] After the guest is live, test the route with SNI/Host and verify that
+      `X-Forwarded-Proto`, WebSockets, uploads, and long-running requests work.
+- [ ] Add ACME certificate issuance and renewal on the VPS later.
 
-### Encrypted cross-site backups
+### Data migration and operations
 
-- Define a backup matrix for the application VM and Immich guest, including
-  databases, application configuration, credentials/config metadata, and
-  photo data.
-- Use application-aware database dumps or backup procedures before copying
-  database data.
-- Use a repository-based encrypted backup tool such as Restic or Borg, with
-  separate repository encryption keys and retention policies for each site.
-- Prefer outbound, authenticated backup jobs over WireGuard rather than
-  exposing backup services through the public proxy.
-- Keep backup keys outside the backup data and store recovery material in a
-  separately protected location.
-- Add pruning, retention, monitoring, and periodic restore tests. A backup is
-  not complete until a representative restore has been verified.
-- Consider immutable or append-only protection on at least one copy so a
-  compromised host cannot immediately erase both locations.
+- [ ] Create the filesystem, mount point, ownership, and directory structure
+      before starting the stack.
+- [ ] If an existing library is being imported, stop Immich during the final
+      copy and verify file counts, permissions, and available capacity.
+- [ ] Enable monitoring for disk usage, database health, container health,
+      WireGuard reachability, and backup freshness.
+- [ ] Document the recovery procedure for rebuilding the guest from the
+      Compose files, secrets, database backup, and media disk.
 
-### Implementation TODO
+### Encrypted off-site recovery
 
-- [ ] Decide whether the off-site guest should be a VM or LXC; document the
-      Docker and storage trade-offs.
-- [ ] Prefer a VM with an SSD OS disk and a separate HDD-backed data disk;
-      record the chosen VM/LXC decision before provisioning.
-- [ ] Create a new inventory host for the Immich guest, separate from
-      `proxmox-backup-host`.
-- [ ] Allocate a new WireGuard address and peer configuration for the guest.
-- [x] Implement VPS HTTPS hostname routing for `immich.74services.net` and
-      `deploy.74services.net`; replace the staged Immich address if the final
-      allocation differs.
-- [ ] Install the manually managed VPS certificate and key at the paths
-      configured in `inventory/host_vars/proxy-vps.yml`.
-- [ ] Define certificate renewal/ACME automation on the VPS later.
-- [ ] Provision storage, filesystem layout, and backup capacity for Immich.
-- [ ] Add the guest as a Komodo Server/Periphery target and create a separate
-      Git-backed Immich Stack resource.
-- [ ] Document the required Immich request size, timeout, WebSocket, and
-      upload settings at the VPS edge.
-- [ ] Decide whether the main application platform will adopt Swarm. Treat
-      that as independent of the off-site Immich deployment.
-- [ ] If multiple off-site applications are added, define an explicit routing
-      discovery strategy before adding more public hostnames.
-- [ ] Implement encrypted bidirectional backup jobs between the application
-      VM and off-site guest.
-- [ ] Test restoration of the application VM and Immich data using only the
-      off-site recovery copies.
+- [ ] Define what the primary application VM sends to `immich2`, and what
+      `immich2` sends back to the primary site.
+- [ ] Use application-aware database dumps before copying database backups.
+- [ ] Use Restic or Borg with separate repository encryption keys and retention
+      policies for each direction.
+- [ ] Run backup jobs outbound over WireGuard; do not expose backup services
+      through the public Nginx proxy.
+- [ ] Keep recovery keys outside both hosts and document the emergency key
+      access process.
+- [ ] Add pruning, alerting, and periodic restore tests.
+- [ ] Test recovery of both the application VM and the Immich database/media
+      from the off-site copies.
+
+### Architecture boundary
+
+- [ ] Keep `immich2` as an independent Docker Compose host initially. Do not
+      introduce a cross-site Swarm merely for this one stateful application.
+- [ ] Reconsider adding other workloads to the off-site host only after
+      capacity, storage isolation, backup impact, and routing ownership are
+      documented.
+- [ ] If more off-site applications are added, choose an explicit discovery
+      model before adding more public hostnames: static inventory routes,
+      `traefik-kop`/Redis, or a deliberately designed Swarm cluster.

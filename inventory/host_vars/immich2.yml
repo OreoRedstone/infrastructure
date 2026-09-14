@@ -1,0 +1,32 @@
+---
+# Bootstrap traffic is routed laptop -> VPS WireGuard -> off-site Proxmox ->
+# this guest's LAN address.
+immich2_bootstrap_address: 192.168.68.107
+ansible_host_bootstrap: "{{ immich2_bootstrap_address }}"
+ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
+# The guest now has the administrator key installed. Bootstrap mode remains
+# enabled only for temporary firewall policy until WireGuard is verified.
+ansible_user: "{{ admin_user }}"
+ansible_become: true
+ansible_become_password: "{{ vault_immich2_sudo_password }}"
+
+hostname: immich2
+
+# Reserved for the guest after WireGuard is installed. Do not reuse the
+# off-site Proxmox host's 10.44.0.5 address.
+wireguard_address: 10.44.0.6/24
+wireguard_peers:
+  - name: VPS hub
+    host: proxy-vps
+    endpoint: "{{ hostvars['proxy-vps']['wireguard_endpoint'] }}:{{ wireguard_port }}"
+    allowed_ips:
+      - "{{ wireguard_vpn_network }}"
+    persistent_keepalive: "{{ wireguard_persistent_keepalive }}"
+
+# This host is not in the managed vpn group until its bootstrap install has
+# completed; see TODO.md for the staged enrollment sequence.
+ufw_bootstrap_rules:
+  - port: "22"
+    proto: tcp
+    from_ip: 192.168.68.0/24
+    comment: Bootstrap SSH from off-site LAN

@@ -24,6 +24,11 @@ wireguard_peers:
     host: proxmox-backup-host
     allowed_ips:
       - 10.44.0.5/32
+      - "{{ hostvars['immich2']['immich2_bootstrap_address'] }}/32"
+  - name: Immich2
+    host: immich2
+    allowed_ips:
+      - 10.44.0.6/32
 
 # During migration, copy the old networking VM's public key and WireGuard
 # address here so Ansible can stage Applications without dropping that peer.
@@ -84,3 +89,17 @@ nginx_reverse_proxy_routes:
     # Immich's standard Compose deployment exposes HTTP/2283. Replace .6
     # with the final WireGuard address allocated to the Immich guest.
     upstream: 10.44.0.6:2283
+
+# Permit the laptop and other VPN clients to reach the off-site guest during
+# bootstrap. Traffic is forwarded from wg1 to wg1 on this host, then routed by
+# the backup Proxmox peer toward its LAN bridge.
+ufw_additional_rules:
+  - rule: allow
+    route: true
+    interface_in: "{{ wireguard_interface }}"
+    interface_out: "{{ wireguard_interface }}"
+    from_ip: "{{ wireguard_vpn_network }}"
+    to_ip: "{{ hostvars['immich2']['immich2_bootstrap_address'] }}"
+    port: "22"
+    proto: tcp
+    comment: WireGuard bootstrap SSH to immich2

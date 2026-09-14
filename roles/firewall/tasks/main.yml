@@ -132,11 +132,14 @@
 - name: Apply additional host firewall rules
   community.general.ufw:
     rule: "{{ item.rule | default('allow') }}"
+    route: "{{ item.route | default(false) }}"
+    direction: "{{ item.direction | default(omit) }}"
     port: "{{ item.port | default(omit) }}"
     proto: "{{ item.proto | default(omit) }}"
     from_ip: "{{ item.from_ip | default(omit) }}"
     to_ip: "{{ item.to_ip | default(omit) }}"
     interface_in: "{{ item.interface_in | default(omit) }}"
+    interface_out: "{{ item.interface_out | default(omit) }}"
     comment: "{{ item.comment | default('Ansible managed') }}"
   loop: "{{ ufw_additional_rules }}"
   when: manage_ufw | bool

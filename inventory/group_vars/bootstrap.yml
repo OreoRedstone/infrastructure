@@ -1,0 +1,5 @@
+---
+# Bootstrap mode is deliberately group-scoped. This prevents a bootstrap
+# operation for a new host from changing connection or firewall behaviour on
+# already-managed hosts.
+bootstrap_mode: true

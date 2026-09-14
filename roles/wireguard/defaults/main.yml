@@ -5,6 +5,7 @@ wireguard_address: ""
 wireguard_mtu: 1420
 wireguard_is_hub: false
 wireguard_enable_peer_forwarding: false
+wireguard_configure: true
 wireguard_peers: []
 # Temporary peers retained during brownfield migration. Remove these from
 # inventory after the replacement peer has been tested.

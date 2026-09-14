@@ -98,6 +98,7 @@
   loop: "{{ wireguard_peers }}"
   loop_control:
     label: "{{ item.name }}"
+  when: wireguard_configure | bool
 
 - name: Validate temporary migration peer keys
   ansible.builtin.assert:
@@ -119,6 +120,7 @@
     mode: "0600"
   no_log: true
   notify: Restart WireGuard
+  when: wireguard_configure | bool
 
 - name: Enable IPv4 forwarding on the VPN hub
   ansible.posix.sysctl:
@@ -127,16 +129,18 @@
     state: present
     sysctl_set: true
     reload: true
-  when: wireguard_enable_peer_forwarding | bool
+  when: wireguard_configure | bool and wireguard_enable_peer_forwarding | bool
 
 - name: Enable and start WireGuard
   ansible.builtin.systemd_service:
     name: "wg-quick@{{ wireguard_interface }}"
     enabled: true
     state: started
+  when: wireguard_configure | bool
 
 - name: Apply WireGuard configuration changes now
   ansible.builtin.meta: flush_handlers
+  when: wireguard_configure | bool
 
 - name: Explain an omitted laptop peer
   ansible.builtin.debug:
@@ -146,3 +150,4 @@
   when:
     - wireguard_is_hub | bool
     - wireguard_external_peers | selectattr('public_key', 'equalto', '') | list | length > 0
+    - wireguard_configure | bool

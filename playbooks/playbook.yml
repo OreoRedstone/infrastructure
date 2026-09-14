@@ -7,13 +7,23 @@
   roles:
     - common
 
+- name: Prepare VPN keys
+  hosts: vpn
+  become: true
+  tags: wireguard
+
+  roles:
+    - role: wireguard
+      wireguard_configure: false
+
 - name: Configure VPNs
   hosts: vpn
   become: true
   tags: wireguard
 
   roles:
-    - wireguard
+    - role: wireguard
+      wireguard_configure: true
 
 - name: Configure host firewalls
   hosts: all

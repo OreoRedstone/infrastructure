@@ -73,26 +73,26 @@ mechanism for every command that loads this inventory.
 ## Initial provisioning and VPN onboarding
 
 During bootstrap, temporary SSH rules permit access from the LAN (and from the
-Internet for the VPS). Proxmox host entries use `root` while
-`bootstrap_mode` is true. Once the administrator account exists, they switch
-to `oreo` and use privilege escalation automatically.
+Internet for the VPS). Hosts in the inventory `bootstrap` group use `root` while
+`bootstrap_mode` is true. Once a host's administrator account and management
+VPN are working, remove it from that group; this changes only that host.
 
 Run the first VPN deployment against the complete `vpn` group. This is
 required because the VPS renders peer configuration from public-key facts
 collected from every managed VPN host:
 
 ```sh
-ansible vpn -m ping --ask-vault-pass -e bootstrap_mode=true
+ansible immich2 -m ping --ask-vault-pass
 ansible-playbook playbooks/playbook.yml \
-  --limit vpn \
-  --tags common,wireguard,firewall,node_exporter \
-  --ask-vault-pass \
-  -e bootstrap_mode=true
+  --limit immich2 \
+  --tags common,firewall,node_exporter \
+  --ask-vault-pass
 ```
 
-Do not limit the first WireGuard run to only the new host or the VPS. All four
-hosts must be reachable and complete key collection in the same run. Inspect
-generated public keys with:
+After the guest is reachable and enrolled in `vpn`, run the WireGuard play for
+the complete managed VPN group. The VPS renders peer configuration from
+public-key facts collected from every managed VPN host. Inspect generated keys
+with:
 
 ```sh
 ansible-playbook playbooks/show-vpn-public-keys.yml --ask-vault-pass
@@ -114,9 +114,8 @@ the repository, replace its placeholders, and install it as
 `AllowedIPs = 10.44.0.0/24` routes only management traffic; it does not
 create a full-tunnel Internet VPN.
 
-After bringing up the profile, verify `10.44.0.1`, `.2`, `.3`, and `.5`
-from the laptop. Then set `bootstrap_mode: false` in
-`inventory/group_vars/all/main.yml` and run:
+After bringing up the profile, verify `10.44.0.1`, `.2`, `.3`, `.5`, and then
+`.6` from the laptop. Remove `immich2` from the `bootstrap` group and run:
 
 ```sh
 ansible-playbook playbooks/playbook.yml --ask-vault-pass
