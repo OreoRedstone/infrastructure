@@ -2,6 +2,9 @@
 nginx_reverse_proxy_deploy_server_name: deploy.74services.net
 nginx_reverse_proxy_deploy_upstream: 192.168.0.100:9120
 nginx_reverse_proxy_default_upstream: 127.0.0.1:9999
+nginx_reverse_proxy_routes: []
+nginx_reverse_proxy_listen_port: 443
+nginx_reverse_proxy_public: false
 nginx_reverse_proxy_tls_certificate: /etc/letsencrypt/live/74services.net/fullchain.pem
 nginx_reverse_proxy_tls_certificate_key: /etc/letsencrypt/live/74services.net/privkey.pem
 nginx_reverse_proxy_client_max_body_size: 16G

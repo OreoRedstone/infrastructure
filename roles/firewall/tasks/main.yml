@@ -80,6 +80,17 @@
     - manage_ufw | bool
     - inventory_hostname in groups['vps']
 
+- name: Permit public HTTPS reverse proxy
+  community.general.ufw:
+    rule: allow
+    port: "{{ nginx_reverse_proxy_listen_port | string }}"
+    proto: tcp
+    comment: Public HTTPS reverse proxy
+  when:
+    - manage_ufw | bool
+    - inventory_hostname in groups['vps']
+    - nginx_reverse_proxy_public | bool
+
 - name: Permit Komodo Core from the management VPN
   community.general.ufw:
     rule: allow

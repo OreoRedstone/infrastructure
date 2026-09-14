@@ -133,20 +133,26 @@ traffic. It permits the management VPN, the VPS WireGuard endpoint on
 policy to `allow` so UFW does not silently break guest bridge traffic; review
 that exception if Proxmox's own firewall is enabled.
 
-The VPS Nginx stream proxy forwards these ports to `application-vm`
-(`10.44.0.2`) without terminating TLS:
+The VPS exposes HTTPS through its Nginx reverse proxy and forwards the game
+stream ports through its Nginx stream proxy:
 
 | Public protocol/port | Backend port | Workload |
 | --- | --- | --- |
-| TCP `443` | TCP `443` | HTTPS/application reverse proxy |
+| TCP `443` | HTTP to selected WireGuard backend | HTTPS/application reverse proxy |
 | TCP `25565` | TCP `25565` | Minecraft |
 | UDP `27016` | UDP `27016` | Space Engineers |
 | UDP `34197` | UDP `34197` | Factorio |
 
-On `application-vm`, Nginx terminates HTTPS for `deploy.74services.net` and
-passes other hostnames to local Traefik at `127.0.0.1:9999`. The certificate
-paths are configured in `inventory/host_vars/application-vm.yml` and must
-exist on that VM.
+On the VPS, Nginx terminates HTTPS and routes `deploy.74services.net` to
+Komodo on `application-vm`, `immich.74services.net` to the staged off-site
+Immich guest, and other hostnames to application Traefik at
+`10.44.0.2:9999`. The VPS certificate paths are configured in
+`inventory/host_vars/proxy-vps.yml` and must exist there. The Immich route is
+staged for `10.44.0.6`, while `10.44.0.5` remains assigned to
+`proxmox-backup-host`.
+
+On `application-vm`, the local Nginx configuration remains available for
+backend-local routing and terminates HTTPS when accessed directly.
 
 The application VM also runs Komodo Core, Periphery, MongoDB, and the optional
 authenticated Ntfy wrapper. Komodo Core is published on port `9120` for the
@@ -157,17 +163,18 @@ port. Compose volumes persist MongoDB data, Komodo keys, and Komodo backups.
 
 The physical `proxmox-backup-host` is only a managed Proxmox node. Create a
 separate Immich VM or LXC and give that guest its own address and documented
-networking. Do not reuse `10.44.0.5), which belongs to the Proxmox host. This
+networking. Do not reuse `10.44.0.5`, which belongs to the Proxmox host. This
 repository currently has no Immich deployment role; manage the guest's Docker
 Compose and Traefik configuration separately until that is added.
 
-The current VPS TCP/443 stream is opaque and sends every hostname to
-`application-vm`. Pointing `immich.example.net` at the VPS does not by itself
-route it to the off-site guest. Sensible designs are:
+The VPS now has explicit HTTP hostname routes. Pointing
+`immich.74services.net` at the VPS will route it to the staged off-site
+address once that guest and its HTTP endpoint are provisioned. Future dynamic
+discovery could replace this static map. Sensible designs are:
 
 1. Terminate TLS at the VPS and use an HTTP reverse proxy to send the Immich
    hostname over WireGuard to the guest. Existing application hostnames can
-   continue to go to `application-vm); certificates are centralized.
+   continue to go to `application-vm`; certificates are centralized.
 2. Add SNI-aware TLS passthrough to the VPS Nginx stream configuration using
    `ssl_preread`, with certificates and Traefik on both backends.
 3. Publish the Immich guest through a separate off-site public edge and point

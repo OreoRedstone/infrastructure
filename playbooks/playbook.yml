@@ -38,6 +38,10 @@
 
   roles:
     - nginx_stream
+    - role: nginx_reverse_proxy
+      tags:
+        - nginx
+        - reverse_proxy
 
 - name: Configure the application platform
   hosts: applications

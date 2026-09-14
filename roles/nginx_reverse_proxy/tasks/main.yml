@@ -6,6 +6,19 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Validate configured reverse-proxy routes
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.server_names is defined
+      - item.server_names | length > 0
+      - item.upstream is defined
+    fail_msg: "Invalid nginx_reverse_proxy_routes entry: {{ item }}"
+  loop: "{{ nginx_reverse_proxy_routes }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+  when: nginx_reverse_proxy_routes | length > 0
+
 - name: Install the managed HTTPS reverse-proxy configuration
   ansible.builtin.template:
     src: default.conf.j2

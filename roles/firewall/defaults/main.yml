@@ -9,5 +9,7 @@ ufw_bootstrap_rules: []
 ufw_additional_rules: []
 wireguard_enable_peer_forwarding: false
 nginx_stream_proxies: []
+nginx_reverse_proxy_public: false
+nginx_reverse_proxy_listen_port: 443
 komodo_publish_core_port: false
 komodo_core_access_cidrs: []

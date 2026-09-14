@@ -47,12 +47,6 @@ ufw_bootstrap_rules:
     comment: Bootstrap SSH from Internet
 
 nginx_stream_proxies:
-  - name: https
-    protocol: tcp
-    listen_port: 443
-    upstream_host: 10.44.0.2
-    upstream_port: 443
-
   - name: minecraft
     protocol: tcp
     listen_port: 25565
@@ -71,3 +65,22 @@ nginx_stream_proxies:
     upstream_host: 10.44.0.2
     upstream_port: 34197
     reuseport: true
+
+# TLS terminates on the VPS. Certificates are expected at these paths and are
+# intentionally provisioned manually until ACME automation is added.
+nginx_reverse_proxy_public: true
+nginx_reverse_proxy_tls_certificate: /etc/letsencrypt/live/74services.net/fullchain.pem
+nginx_reverse_proxy_tls_certificate_key: /etc/letsencrypt/live/74services.net/privkey.pem
+nginx_reverse_proxy_default_upstream: 10.44.0.2:9999
+nginx_reverse_proxy_routes:
+  - name: komodo
+    server_names:
+      - deploy.74services.net
+    upstream: 10.44.0.2:9120
+
+  - name: immich
+    server_names:
+      - photos-2.74services.net
+    # Immich's standard Compose deployment exposes HTTP/2283. Replace .6
+    # with the final WireGuard address allocated to the Immich guest.
+    upstream: 10.44.0.6:2283
