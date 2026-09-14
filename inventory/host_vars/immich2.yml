@@ -31,6 +31,14 @@ ufw_bootstrap_rules:
     from_ip: 192.168.68.0/24
     comment: Bootstrap SSH from off-site LAN
 
+ufw_additional_rules:
+  - rule: allow
+    interface_in: "{{ wireguard_interface }}"
+    from_ip: 10.44.0.1/32
+    port: "2283"
+    proto: tcp
+    comment: Immich HTTP from VPS
+
 docker_users:
   - "{{ admin_user }}"
 
