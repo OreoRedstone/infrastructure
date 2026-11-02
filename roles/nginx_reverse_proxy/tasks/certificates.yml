@@ -1,0 +1,127 @@
+---
+- name: Validate Certbot Cloudflare settings
+  ansible.builtin.assert:
+    that:
+      - nginx_reverse_proxy_certbot_email | length > 0
+      - nginx_reverse_proxy_cloudflare_api_token | length > 0
+    fail_msg: >-
+      Set vault_certbot_email and vault_cloudflare_dns_api_token in the
+      encrypted Ansible Vault before enabling wildcard certificate automation.
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Install Certbot and the Cloudflare DNS plugin
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-dns-cloudflare
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Create the Certbot configuration directory
+  ansible.builtin.file:
+    path: /etc/letsencrypt
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Install Cloudflare DNS credentials for Certbot
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/cloudflare.ini
+    content: "dns_cloudflare_api_token = {{ nginx_reverse_proxy_cloudflare_api_token }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Ensure the Certbot deploy-hook directory exists
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Install Certbot renewal deploy hook
+  ansible.builtin.copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      set -eu
+      if systemctl is-active --quiet nginx; then
+        nginx -t
+        systemctl reload nginx
+      fi
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Check whether the Certbot renewal configuration exists
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/renewal/{{ nginx_reverse_proxy_certbot_name }}.conf"
+  register: nginx_reverse_proxy_certbot_renewal_file
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
+- name: Request the wildcard certificate through Cloudflare DNS-01
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --non-interactive
+      - --agree-tos
+      - --email
+      - "{{ nginx_reverse_proxy_certbot_email }}"
+      - --dns-cloudflare
+      - --dns-cloudflare-credentials
+      - /etc/letsencrypt/cloudflare.ini
+      - --dns-cloudflare-propagation-seconds
+      - "{{ nginx_reverse_proxy_certbot_propagation_seconds | string }}"
+      - --cert-name
+      - "{{ nginx_reverse_proxy_certbot_name }}"
+      - -d
+      - "*.74services.net"
+  when:
+    - nginx_reverse_proxy_certbot_enabled | bool
+    - not nginx_reverse_proxy_certbot_renewal_file.stat.exists
+
+- name: Read the existing Certbot renewal configuration
+  ansible.builtin.slurp:
+    src: "/etc/letsencrypt/renewal/{{ nginx_reverse_proxy_certbot_name }}.conf"
+  register: nginx_reverse_proxy_certbot_renewal_config
+  when:
+    - nginx_reverse_proxy_certbot_enabled | bool
+    - nginx_reverse_proxy_certbot_renewal_file.stat.exists
+
+- name: Configure the existing certificate for Cloudflare DNS-01 renewal
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - reconfigure
+      - --non-interactive
+      - --cert-name
+      - "{{ nginx_reverse_proxy_certbot_name }}"
+      - --email
+      - "{{ nginx_reverse_proxy_certbot_email }}"
+      - --dns-cloudflare
+      - --dns-cloudflare-credentials
+      - /etc/letsencrypt/cloudflare.ini
+      - --dns-cloudflare-propagation-seconds
+      - "{{ nginx_reverse_proxy_certbot_propagation_seconds | string }}"
+  when:
+    - nginx_reverse_proxy_certbot_enabled | bool
+    - nginx_reverse_proxy_certbot_renewal_file.stat.exists
+    - "'dns-cloudflare' not in (nginx_reverse_proxy_certbot_renewal_config.content | b64decode)"
+
+- name: Enable and start the Certbot renewal timer
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    enabled: true
+    state: started
+  when: nginx_reverse_proxy_certbot_enabled | bool
+

@@ -12,6 +12,7 @@ LXC; those remain separate workloads.
 | `application-vm` | `applications`, `vpn` | `10.44.0.2` | Docker, Komodo, MongoDB, and backend reverse proxy |
 | `proxmox-host` | `proxmox`, `vpn` | `10.44.0.3` | Proxmox management peer |
 | `proxmox-backup-host` | `proxmox`, `vpn` | `10.44.0.5` | Off-site Proxmox management peer; future backup/Immich guest host |
+| `immich2` | `offsite_applications`, `vpn` | `10.44.0.6` | Off-site Komodo Periphery and separately managed Immich workload |
 | Laptop | external peer | `10.44.0.4` | Ansible controller and management client |
 
 The managed WireGuard interface is `wg1`, using UDP port `51821` and network
@@ -84,12 +85,123 @@ The vault contains the laptop public key and Komodo credentials. Supply the
 vault password with `--ask-vault-pass` or the normal local vault-password-file
 mechanism for every command that loads this inventory.
 
+## Create a new host and enable SSH
+
+Create the VM or install the physical machine manually; this repository does
+not create guests, partitions, storage mounts, or network interfaces. For a
+new application guest, use a minimal Debian 13 installation with a unique
+hostname and LAN address, working DNS/default gateway, and the Debian security
+repository enabled. Keep console access available through onboarding.
+
+During installation, create the administrator `oreo` (matching `admin_user` in
+`inventory/group_vars/all/main.yml`), set a strong local password, and select
+SSH server and standard system utilities. On Debian, leaving the installer root
+password blank normally enables sudo for the first user. Verify this rather
+than assuming it. If the account was not created by the installer, run the
+following as root from the console; skip `adduser` if `oreo` already exists:
+
+```sh
+apt update
+apt install openssh-server python3 sudo ca-certificates
+adduser oreo
+usermod -aG sudo oreo
+systemctl enable --now ssh
+hostname -I
+```
+
+Apply OS security updates and reboot if required before exposing workloads.
+Log out and back in after changing group membership. From an `oreo` console
+session, confirm `sudo -v` succeeds using the local account password.
+
+Install the controller's **public** SSH key using the console. As `oreo`, run:
+
+```sh
+install -d -m 700 ~/.ssh
+# Paste the controller's public key as one line into this file:
+nano ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+The key should match an entry in `admin_authorized_keys`; never copy the
+controller's private key to a server. If editing as root, ensure `/home/oreo/.ssh`
+and its files belong to `oreo:oreo`. Allow TCP/22 from the controller's actual
+source address in any provider, hypervisor, or existing host firewall.
+
+From the controller, replace `NEW_LAN_IP` with the address shown at the console:
+
+```sh
+ssh oreo@NEW_LAN_IP
+sudo -v
+```
+
+Verify the SSH host-key fingerprint against the console before accepting it.
+For a replacement at a reused address, verify the new fingerprint before
+removing the old known-host entry. Do not disable host-key checking.
+
+### Register the host in Ansible
+
+Add the host to the appropriate workload group and to `bootstrap` in
+`inventory/hosts.yml`. Use `offsite_applications` for a Periphery-only guest;
+`applications` deploys Komodo Core and MongoDB as well. These workload groups
+already inherit membership in `vpn`. Proxmox nodes belong in `proxmox` and
+should retain `manage_hostname: false`.
+
+Create `inventory/host_vars/NEW_HOST.yml` following the existing hosts. Replace
+all example addresses and names before running Ansible:
+
+```yaml
+---
+ansible_host_bootstrap: NEW_LAN_IP
+ansible_host: "{{ ansible_host_bootstrap if (bootstrap_mode | bool) else (wireguard_address.split('/')[0]) }}"
+ansible_user: "{{ admin_user }}"
+ansible_become: true
+hostname: NEW_HOST
+wireguard_address: 10.44.0.7/24  # Example only: verify it is unused.
+wireguard_peers:
+  - name: VPS hub
+    host: proxy-vps
+    endpoint: "{{ hostvars['proxy-vps']['wireguard_endpoint'] }}:{{ wireguard_port }}"
+    allowed_ips:
+      - "{{ wireguard_vpn_network }}"
+    persistent_keepalive: "{{ wireguard_persistent_keepalive }}"
+```
+
+Initially supply the account's sudo password with `--ask-become-pass`, or use a
+host-specific encrypted vault variable as the existing application hosts do.
+The common role installs passwordless sudo by default; subsequent runs no
+longer need the initial password. Bootstrap membership selects the connection
+address and temporary firewall rules; host variables select the SSH user.
+
+Add the new peer to `proxy-vps.yml` with its unique VPN address as a `/32`.
+For a remote LAN, arrange routing and SSH firewall access before onboarding;
+copying the existing off-site host's address will not create a route. Override
+`ufw_bootstrap_rules` if the shared LAN source does not include the controller.
+For Periphery-only guests, also copy the relevant `komodo_deploy_core: false`
+and onboarding settings from `immich2.yml` and supply its vault onboarding key.
+
+Replace `NEW_HOST` in these commands with the inventory name:
+
+```sh
+ansible NEW_HOST -m ping --ask-vault-pass --ask-become-pass
+ansible-playbook playbooks/playbook.yml --limit NEW_HOST --tags common --ask-vault-pass --ask-become-pass
+ansible-playbook playbooks/playbook.yml --limit vpn --tags wireguard --ask-vault-pass
+ansible-playbook playbooks/playbook.yml --limit NEW_HOST --ask-vault-pass
+```
+
+The VPN run needs all managed peers reachable to collect their public keys.
+Before the full host run, prepare any required storage mounts, certificates,
+and workload-specific vault settings. Confirm key-based administrator SSH over
+the new VPN address, then remove the host from `bootstrap` and rerun the full
+host command. This switches management to WireGuard and removes temporary SSH
+rules. Verify access again before closing the console.
+
 ## Initial provisioning and VPN onboarding
 
 During bootstrap, temporary SSH rules permit access from the LAN (and from the
-Internet for the VPS). Hosts in the inventory `bootstrap` group use `root` while
-`bootstrap_mode` is true. Once a host's administrator account and management
-VPN are working, remove it from that group; this changes only that host.
+Internet for the VPS). The inventory `bootstrap` group enables `bootstrap_mode` for its members;
+it does not change the SSH user. Set `ansible_user` to an existing key-enabled
+sudo account (or root during initial console-assisted onboarding). Once a
+host's administrator account and management VPN work, remove it from that group.
 
 Run the first VPN deployment against the complete `vpn` group. This is
 required because the VPS renders peer configuration from public-key facts
@@ -103,7 +215,7 @@ ansible-playbook playbooks/playbook.yml \
   --ask-vault-pass
 ```
 
-After the guest is reachable and enrolled in `vpn`, run the WireGuard play for
+The guest is already enrolled in `vpn` in the current inventory. After it is reachable, run the WireGuard play for
 the complete managed VPN group. The VPS renders peer configuration from
 public-key facts collected from every managed VPN host. Inspect generated keys
 with:
@@ -157,11 +269,11 @@ stream ports through its Nginx stream proxy:
 | UDP `34197` | UDP `34197` | Factorio |
 
 On the VPS, Nginx terminates HTTPS and routes `deploy.74services.net` to
-Komodo on `application-vm`, `immich.74services.net` to the staged off-site
+Komodo on `application-vm`, `photos-2.74services.net` to the staged off-site
 Immich guest, and other hostnames to application Traefik at
 `10.44.0.2:9999`. The VPS certificate paths are configured in
-`inventory/host_vars/proxy-vps.yml` and must exist there. The Immich route is
-staged for `10.44.0.6`, while `10.44.0.5` remains assigned to
+`inventory/host_vars/proxy-vps.yml`; the enabled Certbot tasks create them. The Immich route targets
+HTTP port `2283` at `10.44.0.6`, while `10.44.0.5` remains assigned to
 `proxmox-backup-host`.
 
 The VPS obtains and renews `*.74services.net` with Certbot using Cloudflare
@@ -190,8 +302,8 @@ networking. Do not reuse `10.44.0.5`, which belongs to the Proxmox host. This
 repository currently has no Immich deployment role; manage the guest's Docker
 Compose and Traefik configuration separately until that is added.
 
-The VPS now has explicit HTTP hostname routes. Pointing
-`immich.74services.net` at the VPS will route it to the staged off-site
+The VPS has explicit HTTP hostname routes. Pointing
+`photos-2.74services.net` at the VPS will route it to the staged off-site
 address once that guest and its HTTP endpoint are provisioned. Future dynamic
 discovery could replace this static map. Sensible designs are:
 
@@ -292,3 +404,14 @@ host from bootstrap only after administrator SSH and VPN access work. Keep the
 old VM powered off for rollback; avoid concurrent database writers. A dry run
 on an empty guest cannot fully validate packages, generated VPN keys or services;
 perform a real staging deployment before production cutover.
+
+### Role task structure
+
+The reverse-proxy role installs Nginx, imports `certificates.yml` for optional
+Cloudflare/Certbot lifecycle management, then imports `proxy.yml` for routes
+and service configuration. The WireGuard role imports `keys.yml` before
+`configure.yml`; the two VPN plays still collect every peer key before rendering
+any peer configuration. Static imports preserve role tags and task conditions.
+
+The firewall role intentionally retains an ordered list of policy and workload
+rules in one file; its shared defaults and host inventory define the exceptions.

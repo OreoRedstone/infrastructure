@@ -23,8 +23,8 @@ wireguard_peers:
       - "{{ wireguard_vpn_network }}"
     persistent_keepalive: "{{ wireguard_persistent_keepalive }}"
 
-# This host is not in the managed vpn group until its bootstrap install has
-# completed; see TODO.md for the staged enrollment sequence.
+# This host is enrolled in vpn. Bootstrap mode is controlled by membership
+# in the bootstrap group; see README.md for onboarding.
 ufw_bootstrap_rules:
   - port: "22"
     proto: tcp

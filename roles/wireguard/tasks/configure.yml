@@ -1,0 +1,76 @@
+---
+- name: Validate supplied external peer public keys
+  ansible.builtin.assert:
+    that:
+      - item.public_key is match('^[A-Za-z0-9+/]{43}=$')
+    fail_msg: >-
+      {{ item.name }} has an invalid WireGuard public key. Replace the example
+      vault value with the 44-character public key generated on that peer.
+  loop: "{{ wireguard_external_peers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.public_key | default('') | length > 0
+
+- name: Verify public keys were collected from every managed peer
+  ansible.builtin.assert:
+    that:
+      - hostvars[item.host].wireguard_public_key is defined
+    fail_msg: >-
+      No public key fact is available for {{ item.host }}. Run the VPN play for
+      the complete vpn group rather than limiting it to one host.
+  loop: "{{ wireguard_peers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: wireguard_configure | bool
+
+- name: Validate temporary migration peer keys
+  ansible.builtin.assert:
+    that:
+      - item.public_key is match('^[A-Za-z0-9+/]{43}=$')
+    fail_msg: >-
+      {{ item.name }} has an invalid transition peer key. Copy the current
+      peer's public key from the existing VPS WireGuard configuration.
+  loop: "{{ wireguard_transition_peers }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Configure WireGuard
+  ansible.builtin.template:
+    src: wg.conf.j2
+    dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart WireGuard
+  when: wireguard_configure | bool
+
+- name: Enable IPv4 forwarding on the VPN hub
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    sysctl_set: true
+    reload: true
+  when: wireguard_configure | bool and wireguard_enable_peer_forwarding | bool
+
+- name: Enable and start WireGuard
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ wireguard_interface }}"
+    enabled: true
+    state: started
+  when: wireguard_configure | bool
+
+- name: Apply WireGuard configuration changes now
+  ansible.builtin.meta: flush_handlers
+  when: wireguard_configure | bool
+
+- name: Explain an omitted laptop peer
+  ansible.builtin.debug:
+    msg: >-
+      The Laptop peer is not active yet. Add vault_wireguard_laptop_public_key
+      and rerun the playbook after generating the laptop key pair.
+  when:
+    - wireguard_is_hub | bool
+    - wireguard_external_peers | selectattr('public_key', 'equalto', '') | list | length > 0
+    - wireguard_configure | bool

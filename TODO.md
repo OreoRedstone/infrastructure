@@ -13,7 +13,11 @@ Use PVE-native `vzdump` backups between the two existing Proxmox hosts:
   storage with `content backup`, and run scheduled backup jobs with
   `compress=zstd` and retention rules.
 
-No operating-system disks are included. They are recreated with Ansible.
+The planned backup policy excludes operating-system disks. Ansible recreates
+only the platform configuration covered by this repository. Before excluding OS
+disks, separately back up certificates, WireGuard identities, secrets, workload
+definitions and any state outside the selected data disks; document mounts and
+GPU setup. This backup plan is not operational until the checks below pass.
 
 ## Confirmed live layout
 
