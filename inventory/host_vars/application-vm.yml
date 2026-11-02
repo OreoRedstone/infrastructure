@@ -29,7 +29,10 @@ docker_users:
 komodo_bind_address: 0.0.0.0
 komodo_wait_host: 127.0.0.1
 komodo_host_url: https://deploy.74services.net
-komodo_image_tag: "2"
+# Temporary workaround for the false rejection of Ubuntu's 7.0.14-based
+# kernel. Enable glibc rseq to avoid TCMalloc's per-CPU cache path.
+# Remove after deploying a MongoDB release with the Ubuntu detection fix.
+komodo_mongo_glibc_tunables: glibc.pthread.rseq=1
 komodo_periphery_ssl_enabled: false
 komodo_periphery_server_enabled: true
 komodo_publish_core_port: true

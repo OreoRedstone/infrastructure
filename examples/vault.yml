@@ -6,6 +6,11 @@
 # only the resulting public key here. Keep laptop.key outside this repository.
 vault_wireguard_laptop_public_key: REPLACE_WITH_LAPTOP_PUBLIC_KEY
 
+# Cloudflare API token scoped to the 74services.net zone with Zone:Read and
+# DNS:Edit permissions. Used only for unattended wildcard certificate renewal.
+vault_certbot_email: REPLACE_WITH_CERTIFICATE_CONTACT_EMAIL
+vault_cloudflare_dns_api_token: REPLACE_WITH_CLOUDFLARE_DNS_API_TOKEN
+
 # Suggested generators are shown in README.md. Do not reuse these example values.
 vault_komodo_database_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS
 vault_komodo_admin_password: REPLACE_WITH_AT_LEAST_16_RANDOM_CHARACTERS

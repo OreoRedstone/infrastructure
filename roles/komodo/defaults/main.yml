@@ -3,8 +3,10 @@ komodo_project_directory: /opt/komodo
 komodo_root_directory: /etc/komodo
 komodo_backups_directory: /etc/komodo/backups
 komodo_deploy_core: true
-komodo_image_tag: "2"
-komodo_mongo_image: mongo:8
+# Keep Core and every Periphery on the same reviewed release.
+komodo_image_tag: "2.3.4"
+komodo_mongo_image: mongo:8.3.13
+komodo_mongo_glibc_tunables: ""
 komodo_bind_address: 127.0.0.1
 komodo_additional_bind_addresses: []
 komodo_wait_host: 127.0.0.1

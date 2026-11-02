@@ -71,11 +71,15 @@ nginx_stream_proxies:
     upstream_port: 34197
     reuseport: true
 
-# TLS terminates on the VPS. Certificates are expected at these paths and are
-# intentionally provisioned manually until ACME automation is added.
+# TLS terminates on the VPS. Certbot obtains and renews the wildcard through
+# Cloudflare DNS-01; keep its API token and contact email in Ansible Vault.
 nginx_reverse_proxy_public: true
-nginx_reverse_proxy_tls_certificate: /etc/letsencrypt/live/74services.net/fullchain.pem
-nginx_reverse_proxy_tls_certificate_key: /etc/letsencrypt/live/74services.net/privkey.pem
+nginx_reverse_proxy_certbot_enabled: true
+# Keep the automated Certbot lineage separate from the pre-existing manual
+# certificate files, which have no matching renewal configuration on the VPS.
+nginx_reverse_proxy_certbot_name: 74services.net-wildcard
+nginx_reverse_proxy_tls_certificate: /etc/letsencrypt/live/74services.net-wildcard/fullchain.pem
+nginx_reverse_proxy_tls_certificate_key: /etc/letsencrypt/live/74services.net-wildcard/privkey.pem
 nginx_reverse_proxy_default_upstream: 10.44.0.2:9999
 nginx_reverse_proxy_routes:
   - name: komodo

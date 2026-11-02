@@ -11,6 +11,9 @@ services:
       glance.parent: komodo
       glance.name: Mongo
     environment:
+{% if komodo_mongo_glibc_tunables | length > 0 %}
+      GLIBC_TUNABLES: {{ komodo_mongo_glibc_tunables | to_json }}
+{% endif %}
       MONGO_INITDB_ROOT_USERNAME: {{ komodo_database_username | to_json }}
       MONGO_INITDB_ROOT_PASSWORD: {{ vault_komodo_database_password | to_json }}
     volumes:

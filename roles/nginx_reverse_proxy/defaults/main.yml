@@ -7,6 +7,11 @@ nginx_reverse_proxy_listen_port: 443
 nginx_reverse_proxy_public: false
 nginx_reverse_proxy_tls_certificate: /etc/letsencrypt/live/74services.net/fullchain.pem
 nginx_reverse_proxy_tls_certificate_key: /etc/letsencrypt/live/74services.net/privkey.pem
+nginx_reverse_proxy_certbot_enabled: false
+nginx_reverse_proxy_certbot_name: 74services.net
+nginx_reverse_proxy_certbot_email: "{{ vault_certbot_email | default('') }}"
+nginx_reverse_proxy_cloudflare_api_token: "{{ vault_cloudflare_dns_api_token | default('') }}"
+nginx_reverse_proxy_certbot_propagation_seconds: 30
 nginx_reverse_proxy_client_max_body_size: 16G
 nginx_reverse_proxy_client_body_timeout: 3600s
 nginx_reverse_proxy_send_timeout: 3600s

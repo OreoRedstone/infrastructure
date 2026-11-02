@@ -1,0 +1,2 @@
+# Python 3.12 or newer. Collections are pinned separately in requirements.yml.
+ansible-core==2.21.5

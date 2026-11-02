@@ -48,7 +48,6 @@ komodo_deploy_core: false
 komodo_first_server_name: immich2
 komodo_periphery_core_address: ws://10.44.0.2:9120
 komodo_host_url: http://10.44.0.2:9120
-komodo_image_tag: "2"
 komodo_periphery_ssl_enabled: false
 komodo_ntfy_enabled: false
 komodo_extra_env: {}

@@ -30,11 +30,25 @@ Internet gateway: there is no default route or masquerading for VPN clients.
 
 ## Prerequisites
 
-Install the required Ansible collections:
+The reviewed controller uses Ansible Core 2.21.5, which requires Python 3.12
+or newer. Install it inside your controller's Python virtual environment,
+or use an equivalent distribution package:
+
+```sh
+python3 -m pip install -r requirements-controller.txt
+```
+
+Install the pinned Ansible collections:
 
 ```sh
 ansible-galaxy collection install -r requirements.yml
 ```
+
+Container versions are shared in `roles/komodo/defaults/main.yml`: Core and
+all Periphery agents use the same exact release. Update them together using
+`--limit application-vm,immich2 --tags komodo`. This also runs the Docker role
+on those hosts. Review [VERSION-AUDIT.md](VERSION-AUDIT.md) before changing
+MongoDB or removing the application host's temporary rseq workaround.
 
 Set the bootstrap SSH addresses in `inventory/host_vars/` before provisioning:
 
@@ -149,6 +163,16 @@ Immich guest, and other hostnames to application Traefik at
 `inventory/host_vars/proxy-vps.yml` and must exist there. The Immich route is
 staged for `10.44.0.6`, while `10.44.0.5` remains assigned to
 `proxmox-backup-host`.
+
+The VPS obtains and renews `*.74services.net` with Certbot using Cloudflare
+DNS-01 validation. Before applying the proxy role, add
+`vault_certbot_email` and a narrowly scoped `vault_cloudflare_dns_api_token`
+to `inventory/group_vars/all/vault.yml`, then encrypt the file. The token needs
+Zone:Read and DNS:Edit access to the `74services.net` zone. The role installs
+the Certbot Cloudflare plugin, requests the wildcard certificate, and enables
+`certbot.timer`; a Certbot deploy hook tests and reloads Nginx after renewals.
+Check renewal readiness on the VPS with `sudo certbot renew --dry-run` and
+`systemctl status certbot.timer`. No inbound HTTP challenge port is needed.
 
 On `application-vm`, the local Nginx configuration remains available for
 backend-local routing and terminates HTTPS when accessed directly.
