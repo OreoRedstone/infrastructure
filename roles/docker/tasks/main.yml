@@ -4,6 +4,7 @@
     that:
       - ansible_distribution in ['Ubuntu', 'Debian']
       - ansible_architecture in ['x86_64', 'aarch64']
+      - ansible_distribution != 'Debian' or ansible_distribution_release in ['bookworm', 'trixie']
     fail_msg: >-
       Docker repository setup does not support {{ ansible_distribution }} on
       {{ ansible_architecture }} in this role.

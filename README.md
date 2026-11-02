@@ -245,3 +245,50 @@ rsync -aHAX --numeric-ids SOURCE/ DESTINATION/
 Never run two Komodo Cores against the same MongoDB data. Validate application
 data, storage mounts, VPN peers, public ports, and backups before retiring old
 services.
+
+## Debian application VM migration
+
+Debian 13 (trixie) is the preferred fresh application VM target; Debian 12
+(bookworm) is also accepted by the Docker role. Docker repositories and keys
+are selected from gathered distribution facts, not from the inventory hostname.
+See [Docker's Debian requirements](https://docs.docker.com/engine/install/debian/).
+The MongoDB rseq workaround is applied only to Ubuntu hosts.
+
+Prepare a minimal Debian installation with systemd, working DNS, time sync,
+the Debian security APT repository, OpenSSH server, Python 3, and sudo. Apply
+security updates and boot the updated kernel before exposing services. The
+playbook installs application packages but does not upgrade the OS/kernel.
+For the first connection use a key-enabled root account or an existing sudo
+administrator; a minimal installation may require Python/sudo installation
+from the console before Ansible can run. Set ansible_user explicitly to that
+account when onboarding; membership in bootstrap does not select the SSH user.
+
+Build the replacement on a distinct LAN address. Add application-vm to the
+bootstrap inventory group and set its bootstrap address to the replacement.
+Keep the old guest off the production VPN while the new guest uses its identity;
+never run two guests with 10.44.0.2 simultaneously. Back up the old WireGuard
+private key securely and restore it on the replacement before VPN configuration,
+or collect all VPN peer facts and update the hub with the new public key.
+Run common provisioning first, then the VPN plays against the full vpn group:
+
+```sh
+ansible-playbook playbooks/playbook.yml --limit application-vm --tags common --ask-vault-pass
+ansible-playbook playbooks/playbook.yml --limit vpn --tags wireguard --ask-vault-pass
+ansible-playbook playbooks/playbook.yml --limit application-vm --ask-vault-pass
+```
+
+Before the final command, restore /etc/letsencrypt (including symlink targets)
+for the application host's local HTTPS proxy, or arrange replacement certificates.
+Restore application mounts, ownership/ACLs, Compose definitions and secrets,
+Komodo keys/backups, and consistent database backups before starting workloads.
+This repository does not recreate arbitrary Komodo stacks, GPU drivers or
+passthrough, NAS mounts, or external application data. Inventory those separately.
+Do not copy a running MongoDB data directory; stop writes for the final sync or
+use a supported database backup/restore procedure.
+
+After provisioning, verify VPN handshakes, mounts, database contents, Komodo,
+HTTPS routing, certificate renewal, monitoring, and GPU workloads. Remove the
+host from bootstrap only after administrator SSH and VPN access work. Keep the
+old VM powered off for rollback; avoid concurrent database writers. A dry run
+on an empty guest cannot fully validate packages, generated VPN keys or services;
+perform a real staging deployment before production cutover.

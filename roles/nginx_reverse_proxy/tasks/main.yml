@@ -26,6 +26,15 @@
     cache_valid_time: 3600
   when: nginx_reverse_proxy_certbot_enabled | bool
 
+- name: Create the Certbot configuration directory
+  ansible.builtin.file:
+    path: /etc/letsencrypt
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: nginx_reverse_proxy_certbot_enabled | bool
+
 - name: Install Cloudflare DNS credentials for Certbot
   ansible.builtin.copy:
     dest: /etc/letsencrypt/cloudflare.ini

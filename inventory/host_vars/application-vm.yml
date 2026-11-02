@@ -32,7 +32,7 @@ komodo_host_url: https://deploy.74services.net
 # Temporary workaround for the false rejection of Ubuntu's 7.0.14-based
 # kernel. Enable glibc rseq to avoid TCMalloc's per-CPU cache path.
 # Remove after deploying a MongoDB release with the Ubuntu detection fix.
-komodo_mongo_glibc_tunables: glibc.pthread.rseq=1
+komodo_mongo_glibc_tunables: "{{ 'glibc.pthread.rseq=1' if ansible_distribution == 'Ubuntu' else '' }}"
 komodo_periphery_ssl_enabled: false
 komodo_periphery_server_enabled: true
 komodo_publish_core_port: true

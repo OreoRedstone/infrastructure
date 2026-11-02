@@ -4,7 +4,7 @@
     that:
       - ansible_os_family == "Debian"
     fail_msg: >-
-      This repository supports Ubuntu and Debian-family Proxmox hosts only;
+      This repository supports Debian, Ubuntu, and Debian-family Proxmox hosts;
       found {{ ansible_distribution }} {{ ansible_distribution_version }}.
 
 - name: Set system hostname
