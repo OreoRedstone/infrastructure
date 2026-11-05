@@ -21,6 +21,9 @@ Internet gateway: there is no default route or masquerading for VPN clients.
 
 ## Repository layout
 
+See [Proxmox automation options](PROXMOX-AUTOMATION.md) for researched options
+and a proposed sequence for managing storage, backups, and guest provisioning.
+
 - `inventory/hosts.yml` defines host groups and VPN membership.
 - `inventory/host_vars/` contains connection addresses and host settings.
 - `inventory/group_vars/` contains shared settings and encrypted secrets.
